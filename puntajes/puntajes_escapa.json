@@ -10,6 +10,21 @@
     "puntos": 2500
   },
   {
+    "nombre_jugador": "Luis",
+    "modo": "escapa",
+    "puntos": 2500
+  },
+  {
+    "nombre_jugador": "Luis",
+    "modo": "escapa",
+    "puntos": 2500
+  },
+  {
+    "nombre_jugador": "Luis",
+    "modo": "escapa",
+    "puntos": 2500
+  },
+  {
     "nombre_jugador": "María",
     "modo": "escapa",
     "puntos": 2000
@@ -18,6 +33,36 @@
     "nombre_jugador": "María",
     "modo": "escapa",
     "puntos": 2000
+  },
+  {
+    "nombre_jugador": "María",
+    "modo": "escapa",
+    "puntos": 2000
+  },
+  {
+    "nombre_jugador": "María",
+    "modo": "escapa",
+    "puntos": 2000
+  },
+  {
+    "nombre_jugador": "María",
+    "modo": "escapa",
+    "puntos": 2000
+  },
+  {
+    "nombre_jugador": "Ana",
+    "modo": "escapa",
+    "puntos": 1800
+  },
+  {
+    "nombre_jugador": "Ana",
+    "modo": "escapa",
+    "puntos": 1800
+  },
+  {
+    "nombre_jugador": "Ana",
+    "modo": "escapa",
+    "puntos": 1800
   },
   {
     "nombre_jugador": "Ana",
@@ -40,6 +85,21 @@
     "puntos": 1500
   },
   {
+    "nombre_jugador": "Juan",
+    "modo": "escapa",
+    "puntos": 1500
+  },
+  {
+    "nombre_jugador": "Juan",
+    "modo": "escapa",
+    "puntos": 1500
+  },
+  {
+    "nombre_jugador": "Juan",
+    "modo": "escapa",
+    "puntos": 1500
+  },
+  {
     "nombre_jugador": "Pedro",
     "modo": "escapa",
     "puntos": 1200
@@ -48,6 +108,36 @@
     "nombre_jugador": "Pedro",
     "modo": "escapa",
     "puntos": 1200
+  },
+  {
+    "nombre_jugador": "Pedro",
+    "modo": "escapa",
+    "puntos": 1200
+  },
+  {
+    "nombre_jugador": "Pedro",
+    "modo": "escapa",
+    "puntos": 1200
+  },
+  {
+    "nombre_jugador": "Pedro",
+    "modo": "escapa",
+    "puntos": 1200
+  },
+  {
+    "nombre_jugador": "Sofía",
+    "modo": "escapa",
+    "puntos": 1000
+  },
+  {
+    "nombre_jugador": "Sofía",
+    "modo": "escapa",
+    "puntos": 1000
+  },
+  {
+    "nombre_jugador": "Sofía",
+    "modo": "escapa",
+    "puntos": 1000
   },
   {
     "nombre_jugador": "Sofía",

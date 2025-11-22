@@ -3,6 +3,7 @@ Módulo mapa: Define la clase Mapa que representa el laberinto.
 """
 
 from typing import Tuple, Optional, List
+from collections import deque
 from .tile import Tile, Camino, Muro
 
 
@@ -26,7 +27,29 @@ class Mapa:
             casillas: Matriz 2D de objetos Tile.
             posicion_inicio: Tupla (fila, columna) de la posición inicial del jugador.
             posicion_salida: Tupla (fila, columna) de la posición de salida.
+        
+        Raises:
+            ValueError: Si las dimensiones no coinciden o las posiciones son inválidas.
         """
+        # Validaciones básicas
+        if ancho <= 0 or alto <= 0:
+            raise ValueError("El ancho y alto del mapa deben ser mayores a 0")
+        
+        if len(casillas) != alto:
+            raise ValueError(f"El número de filas en casillas ({len(casillas)}) no coincide con alto ({alto})")
+        
+        if len(casillas) > 0 and len(casillas[0]) != ancho:
+            raise ValueError(f"El número de columnas en casillas ({len(casillas[0])}) no coincide con ancho ({ancho})")
+        
+        fila_inicio, col_inicio = posicion_inicio
+        fila_salida, col_salida = posicion_salida
+        
+        if not (0 <= fila_inicio < alto and 0 <= col_inicio < ancho):
+            raise ValueError(f"Posición inicial inválida: {posicion_inicio} fuera de límites ({alto}x{ancho})")
+        
+        if not (0 <= fila_salida < alto and 0 <= col_salida < ancho):
+            raise ValueError(f"Posición de salida inválida: {posicion_salida} fuera de límites ({alto}x{ancho})")
+        
         self.ancho = ancho
         self.alto = alto
         self.casillas = casillas
@@ -108,6 +131,59 @@ class Mapa:
             Tupla (fila, columna) con la posición inicial del jugador.
         """
         return self.posicion_inicio
+    
+    def existe_camino_valido(self, desde: Optional[Tuple[int, int]] = None, 
+                             hasta: Optional[Tuple[int, int]] = None) -> bool:
+        """
+        Verifica si existe un camino válido para el jugador entre dos posiciones.
+        
+        Args:
+            desde: Posición de inicio. Si es None, usa la posición inicial del jugador.
+            hasta: Posición destino. Si es None, usa la posición de salida.
+            
+        Returns:
+            True si existe un camino válido, False en caso contrario.
+        """
+        if desde is None:
+            desde = self.posicion_inicio
+        if hasta is None:
+            hasta = self.posicion_salida
+        
+        fila_inicio, col_inicio = desde
+        fila_fin, col_fin = hasta
+        
+        # Verificar que las posiciones sean válidas y transitables
+        if not self.es_transitable_por_jugador(fila_inicio, col_inicio):
+            return False
+        if not self.es_transitable_por_jugador(fila_fin, col_fin):
+            return False
+        
+        # BFS para encontrar camino
+        visitado = [[False for _ in range(self.ancho)] for _ in range(self.alto)]
+        cola = deque([(fila_inicio, col_inicio)])
+        visitado[fila_inicio][col_inicio] = True
+        
+        direcciones = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        
+        while cola:
+            fila, col = cola.popleft()
+            
+            if (fila, col) == (fila_fin, col_fin):
+                return True
+            
+            for df, dc in direcciones:
+                nueva_fila = fila + df
+                nueva_col = col + dc
+                
+                if (0 <= nueva_fila < self.alto and 
+                    0 <= nueva_col < self.ancho and 
+                    not visitado[nueva_fila][nueva_col] and
+                    self.es_transitable_por_jugador(nueva_fila, nueva_col)):
+                    
+                    visitado[nueva_fila][nueva_col] = True
+                    cola.append((nueva_fila, nueva_col))
+        
+        return False
     
     def __repr__(self) -> str:
         """Representación del mapa."""

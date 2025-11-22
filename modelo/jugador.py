@@ -208,6 +208,19 @@ class Jugador:
         """
         return self.energia_maxima
     
+    def ha_llegado_a_salida(self, mapa: Mapa) -> bool:
+        """
+        Verifica si el jugador ha llegado a la salida del mapa.
+        
+        Args:
+            mapa: Mapa en el que se encuentra el jugador.
+            
+        Returns:
+            True si el jugador está en la posición de salida, False en caso contrario.
+        """
+        salida = mapa.obtener_posicion_salida()
+        return self.obtener_posicion() == salida
+    
     def __repr__(self) -> str:
         """Representación del jugador."""
         return f"Jugador(pos=({self.fila}, {self.columna}), energia={self.energia_actual}/{self.energia_maxima})"

@@ -39,14 +39,9 @@ def ejemplo_generacion_mapa():
     print(f"Posición inicio: {mapa.obtener_posicion_inicio_jugador()}")
     print(f"Posición salida: {mapa.obtener_posicion_salida()}")
     
-    # Verificar que existe camino válido (usando método interno del generador)
-    generador_verif = GeneradorMapa(ancho=mapa.ancho, alto=mapa.alto)
-    existe_camino = generador_verif._existe_camino_valido(
-        mapa.casillas,
-        mapa.obtener_posicion_inicio_jugador(),
-        mapa.obtener_posicion_salida()
-    )
-    print(f"¿Existe camino valido? {existe_camino}")
+    # Verificar que existe camino válido usando el método público del mapa
+    existe_camino = mapa.existe_camino_valido()
+    print(f"¿Existe camino valido desde inicio hasta salida? {existe_camino}")
     print()
 
 
@@ -56,19 +51,20 @@ def ejemplo_movimiento_jugador():
     print("EJEMPLO 3: Movimiento del Jugador")
     print("=" * 60)
     
-    # Crear un mapa simple
-    casillas = [[Camino() if (i + j) % 2 == 0 else Muro() for j in range(5)] for i in range(5)]
-    # Asegurar que inicio y salida sean camino
-    casillas[0][0] = Camino()
-    casillas[4][4] = Camino()
+    # Crear un mapa simple con un camino claro
+    casillas = [[Camino() for j in range(5)] for i in range(5)]
+    # Agregar algunos muros
+    casillas[1][2] = Muro()
+    casillas[2][2] = Muro()
+    casillas[3][2] = Muro()
     
     mapa = Mapa(5, 5, casillas, (0, 0), (4, 4))
     
     # Crear jugador
     jugador = Jugador(0, 0, energia_maxima=100)
     print(f"Jugador inicial: {jugador}")
-    print(f"Posición: {jugador.obtener_posicion()}")
-    print(f"Energía: {jugador.obtener_energia_actual()}/{jugador.obtener_energia_maxima()}")
+    print(f"Posicion: {jugador.obtener_posicion()}")
+    print(f"Energia: {jugador.obtener_energia_actual()}/{jugador.obtener_energia_maxima()}")
     
     # Intentar movimientos
     print("\nIntentando mover a la derecha (caminando)...")
@@ -86,13 +82,15 @@ def ejemplo_movimiento_jugador():
         print("[X] Movimiento fallido")
     
     print("\nIntentando mover hacia un muro...")
+    pos_antes = jugador.obtener_posicion()
     if jugador.mover_derecha(mapa, corriendo=False):
         print(f"[OK] Movimiento exitoso")
     else:
         print("[X] Movimiento fallido (esperado, hay un muro)")
+        print(f"  Posicion se mantiene en: {jugador.obtener_posicion()}")
     
     print(f"\nEstado final del jugador: {jugador}")
-    print(f"Porcentaje de energía: {jugador.obtener_porcentaje_energia() * 100:.1f}%")
+    print(f"Porcentaje de energia: {jugador.obtener_porcentaje_energia() * 100:.1f}%")
     print()
 
 
@@ -198,7 +196,7 @@ def ejemplo_completo():
     movimientos = 0
     max_movimientos = 20
     
-    while movimientos < max_movimientos and jugador.obtener_posicion() != salida:
+    while movimientos < max_movimientos and not jugador.ha_llegado_a_salida(mapa):
         # Estrategia simple: moverse hacia la salida
         fila_actual, col_actual = jugador.obtener_posicion()
         fila_salida, col_salida = salida
@@ -226,7 +224,8 @@ def ejemplo_completo():
     print(f"Posición final: {jugador.obtener_posicion()}")
     print(f"Energía restante: {jugador.obtener_energia_actual()}/{jugador.obtener_energia_maxima()}")
     
-    if jugador.obtener_posicion() == salida:
+    # Usar el método del jugador para verificar si llegó a la salida
+    if jugador.ha_llegado_a_salida(mapa):
         print("[OK] ¡Llegaste a la salida!")
     else:
         print("[X] No se llego a la salida en el limite de movimientos")
