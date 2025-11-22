@@ -1,0 +1,32 @@
+[
+  {
+    "nombre_jugador": "María",
+    "modo": "cazador",
+    "puntos": 3500
+  },
+  {
+    "nombre_jugador": "María",
+    "modo": "cazador",
+    "puntos": 3500
+  },
+  {
+    "nombre_jugador": "Juan",
+    "modo": "cazador",
+    "puntos": 3000
+  },
+  {
+    "nombre_jugador": "Juan",
+    "modo": "cazador",
+    "puntos": 3000
+  },
+  {
+    "nombre_jugador": "Pedro",
+    "modo": "cazador",
+    "puntos": 2800
+  },
+  {
+    "nombre_jugador": "Pedro",
+    "modo": "cazador",
+    "puntos": 2800
+  }
+]
