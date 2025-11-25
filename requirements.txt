@@ -1,0 +1,6 @@
+# Dependencias para Escapa del Laberinto
+# =======================================
+
+# Interfaz gráfica del juego
+pygame>=2.5.0
+

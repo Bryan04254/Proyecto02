@@ -1,11 +1,13 @@
 """
 Módulo puntajes: Define las clases para el sistema de puntajes y top 5.
+Incluye soporte para fechas y estadísticas detalladas.
 """
 
 import json
 import os
 from typing import List, Optional
 from enum import Enum
+from datetime import datetime
 
 
 class ModoJuego(Enum):
@@ -17,9 +19,13 @@ class ModoJuego(Enum):
 class Puntaje:
     """
     Clase que representa un puntaje de un jugador.
+    Incluye fecha, tiempo de juego y movimientos para estadísticas detalladas.
     """
     
-    def __init__(self, nombre_jugador: str, modo: str, puntos: float):
+    def __init__(self, nombre_jugador: str, modo: str, puntos: float,
+                 fecha: Optional[datetime] = None, 
+                 tiempo_juego: Optional[float] = None,
+                 movimientos: Optional[int] = None):
         """
         Inicializa un puntaje.
         
@@ -27,10 +33,16 @@ class Puntaje:
             nombre_jugador: Nombre del jugador.
             modo: Modo de juego ("escapa" o "cazador").
             puntos: Puntos obtenidos.
+            fecha: Fecha y hora cuando se obtuvo el puntaje.
+            tiempo_juego: Tiempo de juego en segundos.
+            movimientos: Número de movimientos realizados.
         """
         self.nombre_jugador = nombre_jugador
         self.modo = modo
         self.puntos = puntos
+        self.fecha = fecha if fecha else datetime.now()
+        self.tiempo_juego = tiempo_juego
+        self.movimientos = movimientos
     
     def to_dict(self) -> dict:
         """
@@ -39,11 +51,19 @@ class Puntaje:
         Returns:
             Diccionario con los datos del puntaje.
         """
-        return {
+        data = {
             "nombre_jugador": self.nombre_jugador,
             "modo": self.modo,
-            "puntos": self.puntos
+            "puntos": self.puntos,
+            "fecha": self.fecha.isoformat() if self.fecha else None
         }
+        
+        if self.tiempo_juego is not None:
+            data["tiempo_juego"] = self.tiempo_juego
+        if self.movimientos is not None:
+            data["movimientos"] = self.movimientos
+        
+        return data
     
     @classmethod
     def from_dict(cls, data: dict) -> 'Puntaje':
@@ -56,15 +76,37 @@ class Puntaje:
         Returns:
             Objeto Puntaje.
         """
+        fecha = None
+        if "fecha" in data and data["fecha"]:
+            try:
+                fecha = datetime.fromisoformat(data["fecha"])
+            except (ValueError, TypeError):
+                fecha = datetime.now()
+        
         return cls(
             nombre_jugador=data["nombre_jugador"],
             modo=data["modo"],
-            puntos=data["puntos"]
+            puntos=data["puntos"],
+            fecha=fecha,
+            tiempo_juego=data.get("tiempo_juego"),
+            movimientos=data.get("movimientos")
         )
+    
+    def obtener_fecha_formateada(self) -> str:
+        """
+        Obtiene la fecha en formato legible.
+        
+        Returns:
+            String con la fecha formateada.
+        """
+        if self.fecha:
+            return self.fecha.strftime("%d/%m/%Y %H:%M")
+        return "Sin fecha"
     
     def __repr__(self) -> str:
         """Representación del puntaje."""
-        return f"Puntaje(nombre='{self.nombre_jugador}', modo='{self.modo}', puntos={self.puntos})"
+        fecha_str = self.obtener_fecha_formateada()
+        return f"Puntaje(nombre='{self.nombre_jugador}', modo='{self.modo}', puntos={self.puntos}, fecha='{fecha_str}')"
 
 
 class ScoreBoard:
@@ -92,7 +134,8 @@ class ScoreBoard:
         # Cargar puntajes existentes
         self._cargar_puntajes()
     
-    def registrar_puntaje(self, modo: str, nombre_jugador: str, puntos: float) -> None:
+    def registrar_puntaje(self, modo: str, nombre_jugador: str, puntos: float,
+                          tiempo_juego: float = None, movimientos: int = None) -> Puntaje:
         """
         Registra un nuevo puntaje.
         
@@ -100,13 +143,24 @@ class ScoreBoard:
             modo: Modo de juego ("escapa" o "cazador").
             nombre_jugador: Nombre del jugador.
             puntos: Puntos obtenidos.
+            tiempo_juego: Tiempo de juego en segundos (opcional).
+            movimientos: Número de movimientos (opcional).
+            
+        Returns:
+            El puntaje registrado.
         """
         # Validar modo
         if modo not in [ModoJuego.ESCAPA.value, ModoJuego.CAZADOR.value]:
             raise ValueError(f"Modo inválido: {modo}. Debe ser 'escapa' o 'cazador'.")
         
-        # Crear nuevo puntaje
-        nuevo_puntaje = Puntaje(nombre_jugador, modo, puntos)
+        # Crear nuevo puntaje con fecha actual
+        nuevo_puntaje = Puntaje(
+            nombre_jugador=nombre_jugador,
+            modo=modo,
+            puntos=puntos,
+            tiempo_juego=tiempo_juego,
+            movimientos=movimientos
+        )
         
         # Agregar a la lista
         self._puntajes[modo].append(nuevo_puntaje)
@@ -114,11 +168,13 @@ class ScoreBoard:
         # Ordenar de mayor a menor
         self._puntajes[modo].sort(key=lambda p: p.puntos, reverse=True)
         
-        # Mantener solo los mejores (opcional: podemos mantener todos y solo mostrar top 5)
-        # Por ahora mantenemos todos, pero podemos limitar si es necesario
+        # Mantener solo los 10 mejores para evitar que crezca demasiado
+        self._puntajes[modo] = self._puntajes[modo][:10]
         
         # Guardar en archivo
         self._guardar_puntajes(modo)
+        
+        return nuevo_puntaje
     
     def obtener_top5(self, modo: str) -> List[Puntaje]:
         """
