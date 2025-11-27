@@ -10,6 +10,8 @@ from .jugador import Jugador
 
 class EstadoEnemigo(Enum):
     """Estados posibles de un enemigo."""
+    EN_SPAWN = "en_spawn"  # Esperando en el spawn
+    SALIENDO_SPAWN = "saliendo_spawn"  # Saliendo del spawn
     ACTIVO = "activo"
     MUERTO = "muerto"
     ESPERANDO_RESPAWN = "esperando_respawn"
@@ -23,7 +25,7 @@ class Enemigo:
     """
     
     def __init__(self, fila: int, columna: int, velocidad: float = 1.0, 
-                 tiempo_respawn: float = 10.0):
+                 tiempo_respawn: float = 10.0, en_spawn: bool = False):
         """
         Inicializa un enemigo.
         
@@ -32,14 +34,23 @@ class Enemigo:
             columna: Columna inicial del enemigo.
             velocidad: Velocidad de movimiento (movimientos por segundo).
             tiempo_respawn: Tiempo en segundos antes de reaparecer después de morir.
+            en_spawn: Si True, el enemigo comienza en el spawn.
         """
         self.fila = fila
         self.columna = columna
-        self.velocidad = velocidad
+        self.velocidad = velocidad  # movimientos por segundo
         self.tiempo_respawn = tiempo_respawn
-        self.estado = EstadoEnemigo.ACTIVO
+        self.estado = EstadoEnemigo.EN_SPAWN if en_spawn else EstadoEnemigo.ACTIVO
         self.tiempo_restante_respawn = 0.0
         self.mapa: Optional[Mapa] = None
+        
+        # Control de velocidad de movimiento (temporizador)
+        self.tiempo_desde_ultimo_movimiento = 0.0
+        self.tiempo_entre_movimientos = 1.0 / velocidad if velocidad > 0 else 1.0  # segundos entre movimientos
+        
+        # Control de salida del spawn
+        self.tiempo_en_spawn = 0.0
+        self.tiempo_espera_spawn = 2.0  # segundos esperando en spawn antes de salir
     
     def obtener_posicion(self) -> Tuple[int, int]:
         """
@@ -130,12 +141,12 @@ class Enemigo:
     
     def esta_vivo(self) -> bool:
         """
-        Verifica si el enemigo está vivo.
+        Verifica si el enemigo está vivo (activo, en spawn o saliendo del spawn).
         
         Returns:
-            True si está activo, False en caso contrario.
+            True si está vivo, False en caso contrario.
         """
-        return self.estado == EstadoEnemigo.ACTIVO
+        return self.estado in (EstadoEnemigo.ACTIVO, EstadoEnemigo.EN_SPAWN, EstadoEnemigo.SALIENDO_SPAWN)
     
     def esta_muerto(self) -> bool:
         """
@@ -147,7 +158,7 @@ class Enemigo:
         return self.estado == EstadoEnemigo.MUERTO
     
     def actualizar(self, mapa: Mapa, jugador: Jugador, delta_tiempo: float, 
-                   modo: str) -> None:
+                   modo: str, posicion_spawn: Optional[Tuple[int, int]] = None) -> None:
         """
         Actualiza el estado del enemigo (respawn, movimiento según modo).
         
@@ -156,6 +167,7 @@ class Enemigo:
             jugador: Jugador del juego.
             delta_tiempo: Tiempo transcurrido desde la última actualización (segundos).
             modo: Modo de juego ("escapa" o "cazador").
+            posicion_spawn: Posición del spawn (fila, columna). Si es None, no hay spawn.
         """
         self.mapa = mapa
         
@@ -163,48 +175,121 @@ class Enemigo:
         if self.estado == EstadoEnemigo.MUERTO:
             self.tiempo_restante_respawn -= delta_tiempo
             if self.tiempo_restante_respawn <= 0:
-                self._respawn(mapa)
+                self._respawn(mapa, posicion_spawn)
         
-        # Si está activo, mover según el modo
-        if self.estado == EstadoEnemigo.ACTIVO:
-            if modo == "escapa":
-                self._perseguir_jugador(mapa, jugador)
-            elif modo == "cazador":
-                self._huir_del_jugador(mapa, jugador)
+        # Manejar estado en spawn
+        elif self.estado == EstadoEnemigo.EN_SPAWN:
+            if posicion_spawn:
+                # Mover al enemigo al spawn si no está ahí
+                if self.obtener_posicion() != posicion_spawn:
+                    self.fila, self.columna = posicion_spawn
+                
+                # Esperar un tiempo antes de salir
+                self.tiempo_en_spawn += delta_tiempo
+                if self.tiempo_en_spawn >= self.tiempo_espera_spawn:
+                    self.estado = EstadoEnemigo.SALIENDO_SPAWN
+                    self.tiempo_en_spawn = 0.0
+            else:
+                # Si no hay spawn, activar directamente
+                self.estado = EstadoEnemigo.ACTIVO
+        
+        # Manejar salida del spawn
+        elif self.estado == EstadoEnemigo.SALIENDO_SPAWN:
+            if posicion_spawn and self.obtener_posicion() == posicion_spawn:
+                # Intentar salir del spawn moviéndose hacia una casilla adyacente válida
+                self._salir_del_spawn(mapa, posicion_spawn)
+            else:
+                # Ya salió del spawn
+                self.estado = EstadoEnemigo.ACTIVO
+        
+        # Si está activo, mover según el modo (con control de velocidad)
+        elif self.estado == EstadoEnemigo.ACTIVO:
+            self.tiempo_desde_ultimo_movimiento += delta_tiempo
+            
+            # Solo mover si ha pasado el tiempo suficiente
+            if self.tiempo_desde_ultimo_movimiento >= self.tiempo_entre_movimientos:
+                if modo == "escapa":
+                    self._perseguir_jugador(mapa, jugador)
+                elif modo == "cazador":
+                    self._huir_del_jugador(mapa, jugador)
+                
+                self.tiempo_desde_ultimo_movimiento = 0.0
     
-    def _respawn(self, mapa: Mapa) -> None:
+    def _respawn(self, mapa: Mapa, posicion_spawn: Optional[Tuple[int, int]] = None) -> None:
         """
-        Hace que el enemigo reaparezca en una posición válida aleatoria.
+        Hace que el enemigo reaparezca en el spawn o en una posición válida.
         
         Args:
             mapa: Mapa del juego.
+            posicion_spawn: Posición del spawn. Si es None, busca posición aleatoria.
         """
-        import random
-        
-        # Buscar una posición válida aleatoria
-        intentos = 0
-        max_intentos = 100
-        
-        while intentos < max_intentos:
-            fila = random.randint(0, mapa.alto - 1)
-            columna = random.randint(0, mapa.ancho - 1)
+        if posicion_spawn:
+            # Respawnear en el spawn
+            self.fila, self.columna = posicion_spawn
+            self.estado = EstadoEnemigo.EN_SPAWN
+            self.tiempo_en_spawn = 0.0
+            self.tiempo_restante_respawn = 0.0
+        else:
+            # Buscar una posición válida aleatoria (comportamiento antiguo)
+            import random
+            intentos = 0
+            max_intentos = 100
             
-            if mapa.es_transitable_por_enemigo(fila, columna):
-                self.fila = fila
-                self.columna = columna
+            while intentos < max_intentos:
+                fila = random.randint(0, mapa.alto - 1)
+                columna = random.randint(0, mapa.ancho - 1)
+                
+                if mapa.es_transitable_por_enemigo(fila, columna):
+                    self.fila = fila
+                    self.columna = columna
+                    self.estado = EstadoEnemigo.ACTIVO
+                    self.tiempo_restante_respawn = 0.0
+                    return
+                
+                intentos += 1
+            
+            # Si no se encuentra posición, intentar en la posición inicial del mapa
+            inicio = mapa.obtener_posicion_inicio_jugador()
+            if mapa.es_transitable_por_enemigo(inicio[0], inicio[1]):
+                self.fila = inicio[0]
+                self.columna = inicio[1]
                 self.estado = EstadoEnemigo.ACTIVO
                 self.tiempo_restante_respawn = 0.0
-                return
-            
-            intentos += 1
+    
+    def _salir_del_spawn(self, mapa: Mapa, posicion_spawn: Tuple[int, int]) -> None:
+        """
+        Intenta salir del spawn moviéndose a una casilla adyacente válida.
         
-        # Si no se encuentra posición, intentar en la posición inicial del mapa
-        inicio = mapa.obtener_posicion_inicio_jugador()
-        if mapa.es_transitable_por_enemigo(inicio[0], inicio[1]):
-            self.fila = inicio[0]
-            self.columna = inicio[1]
-            self.estado = EstadoEnemigo.ACTIVO
-            self.tiempo_restante_respawn = 0.0
+        Args:
+            mapa: Mapa del juego.
+            posicion_spawn: Posición del spawn.
+        """
+        spawn_fila, spawn_col = posicion_spawn
+        
+        # Intentar moverse en las 4 direcciones para salir del spawn
+        direcciones = [
+            ("arriba", -1, 0),
+            ("abajo", 1, 0),
+            ("izquierda", 0, -1),
+            ("derecha", 0, 1)
+        ]
+        
+        for nombre, df, dc in direcciones:
+            nueva_fila = spawn_fila + df
+            nueva_col = spawn_col + dc
+            
+            if (mapa.es_posicion_valida(nueva_fila, nueva_col) and
+                mapa.es_transitable_por_enemigo(nueva_fila, nueva_col)):
+                # Mover en esa dirección
+                if nombre == "arriba":
+                    self.mover_arriba(mapa)
+                elif nombre == "abajo":
+                    self.mover_abajo(mapa)
+                elif nombre == "izquierda":
+                    self.mover_izquierda(mapa)
+                elif nombre == "derecha":
+                    self.mover_derecha(mapa)
+                return
     
     def _perseguir_jugador(self, mapa: Mapa, jugador: Jugador) -> None:
         """

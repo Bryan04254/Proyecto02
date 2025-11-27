@@ -68,9 +68,16 @@ class GameModeCazador:
         velocidad = self.config["velocidad_enemigos"]
         tiempo_respawn = self.config["tiempo_respawn_enemigo"]
         
+        # Obtener posiciones ya ocupadas
+        posiciones_ocupadas = set()
+        pos_jugador = self.jugador.obtener_posicion()
+        pos_salida = self.mapa.obtener_posicion_salida()
+        posiciones_ocupadas.add(pos_jugador)
+        # En modo cazador, los enemigos pueden estar cerca de la salida, pero no encima
+        
         for _ in range(cantidad):
             # Buscar posición válida aleatoria
-            posicion = self._obtener_posicion_valida_aleatoria()
+            posicion = self._obtener_posicion_valida_aleatoria(posiciones_ocupadas)
             if posicion:
                 enemigo = Enemigo(
                     posicion[0],
@@ -79,25 +86,56 @@ class GameModeCazador:
                     tiempo_respawn=tiempo_respawn
                 )
                 self.enemigos.append(enemigo)
+                posiciones_ocupadas.add(posicion)
     
-    def _obtener_posicion_valida_aleatoria(self) -> Optional[Tuple[int, int]]:
+    def _obtener_posicion_valida_aleatoria(self, posiciones_ocupadas: set) -> Optional[Tuple[int, int]]:
         """
         Obtiene una posición válida aleatoria para un enemigo.
+        
+        Args:
+            posiciones_ocupadas: Conjunto de posiciones ya ocupadas (jugador, otros enemigos).
         
         Returns:
             Tupla (fila, columna) o None si no se encuentra.
         """
         intentos = 0
-        max_intentos = 100
+        max_intentos = 200
+        pos_jugador = self.jugador.obtener_posicion()
+        distancia_minima = 2  # Distancia mínima del jugador al inicio
         
         while intentos < max_intentos:
             fila = random.randint(0, self.mapa.alto - 1)
             columna = random.randint(0, self.mapa.ancho - 1)
+            posicion = (fila, columna)
             
-            # Verificar que sea transitable por enemigos y no sea la posición del jugador
+            # Verificar que sea transitable por enemigos
+            if not self.mapa.es_transitable_por_enemigo(fila, columna):
+                intentos += 1
+                continue
+            
+            # Verificar que no esté ocupada
+            if posicion in posiciones_ocupadas:
+                intentos += 1
+                continue
+            
+            # Verificar distancia mínima del jugador (solo al inicio)
+            distancia_manhattan = abs(fila - pos_jugador[0]) + abs(columna - pos_jugador[1])
+            if distancia_manhattan < distancia_minima:
+                intentos += 1
+                continue
+            
+            return posicion
+        
+        # Si no se encuentra con distancia mínima, intentar sin restricción de distancia
+        intentos = 0
+        while intentos < max_intentos:
+            fila = random.randint(0, self.mapa.alto - 1)
+            columna = random.randint(0, self.mapa.ancho - 1)
+            posicion = (fila, columna)
+            
             if (self.mapa.es_transitable_por_enemigo(fila, columna) and
-                (fila, columna) != self.jugador.obtener_posicion()):
-                return (fila, columna)
+                posicion not in posiciones_ocupadas):
+                return posicion
             
             intentos += 1
         
@@ -123,9 +161,9 @@ class GameModeCazador:
         # Actualizar energía del jugador
         self.jugador.actualizar_energia(delta_tiempo)
         
-        # Actualizar enemigos
+        # Actualizar enemigos (modo cazador no usa spawn)
         for enemigo in self.enemigos:
-            enemigo.actualizar(self.mapa, self.jugador, delta_tiempo, "cazador")
+            enemigo.actualizar(self.mapa, self.jugador, delta_tiempo, "cazador", None)
             
             # Verificar si un enemigo llegó a la salida
             if enemigo.esta_vivo() and enemigo.ha_llegado_a_salida(self.mapa):

@@ -8,6 +8,9 @@ from typing import Tuple, Optional
 from modelo.tile import Tile, Camino, Muro, Liana, Tunel, TipoTile
 from modelo.mapa import Mapa
 from modelo.jugador import Jugador
+from modelo.trampa import Trampa
+from modelo.enemigo import Enemigo, EstadoEnemigo
+from typing import List, Optional
 from .config import Colores, Config
 
 
@@ -126,8 +129,69 @@ class RenderizadorMapa:
         brillo_pos = (centro_x - 3, centro_y - 3)
         pygame.draw.circle(superficie, Colores.TEXTO, brillo_pos, 3)
     
+    def _dibujar_trampa(self, superficie: pygame.Surface, x: int, y: int):
+        """Dibuja una trampa."""
+        centro_x = int(x + self.tamano_celda // 2)
+        centro_y = int(y + self.tamano_celda // 2)
+        
+        # Efecto de pulso
+        pulso = int(3 * math.sin(self.tiempo * 8))
+        radio = self.tamano_celda // 4 + pulso
+        
+        # Círculo exterior con glow
+        glow_surface = pygame.Surface((radio * 4, radio * 4), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surface, (*Colores.ROJO_NEON, 150), 
+                         (radio * 2, radio * 2), radio + 2)
+        superficie.blit(glow_surface, (centro_x - radio * 2, centro_y - radio * 2))
+        
+        # Trampa principal (X roja)
+        pygame.draw.circle(superficie, Colores.ROJO_NEON, (centro_x, centro_y), radio, 2)
+        # Dibujar X
+        offset = radio - 2
+        pygame.draw.line(superficie, Colores.ROJO_NEON, 
+                        (centro_x - offset, centro_y - offset),
+                        (centro_x + offset, centro_y + offset), 2)
+        pygame.draw.line(superficie, Colores.ROJO_NEON,
+                        (centro_x - offset, centro_y + offset),
+                        (centro_x + offset, centro_y - offset), 2)
+    
+    def _dibujar_enemigo(self, superficie: pygame.Surface, x: int, y: int, en_spawn: bool = False):
+        """Dibuja un enemigo."""
+        centro_x = int(x + self.tamano_celda // 2)
+        centro_y = int(y + self.tamano_celda // 2)
+        radio = self.tamano_celda // 3
+        
+        # Si está en spawn, dibujar con opacidad reducida
+        alpha = 150 if en_spawn else 255
+        
+        # Glow exterior pulsante
+        glow_radio = radio + 2 + int(2 * math.sin(self.tiempo * 6))
+        glow_surface = pygame.Surface((glow_radio * 4, glow_radio * 4), pygame.SRCALPHA)
+        glow_alpha = 80 if en_spawn else 120
+        pygame.draw.circle(glow_surface, (*Colores.MAGENTA_NEON, glow_alpha),
+                         (glow_radio * 2, glow_radio * 2), glow_radio)
+        superficie.blit(glow_surface, (centro_x - glow_radio * 2, centro_y - glow_radio * 2))
+        
+        # Enemigo principal con opacidad
+        if en_spawn:
+            # Crear superficie temporal para aplicar alpha
+            temp_surface = pygame.Surface((radio * 2 + 4, radio * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(temp_surface, (*Colores.MAGENTA_NEON, alpha), (radio + 2, radio + 2), radio)
+            superficie.blit(temp_surface, (centro_x - radio - 2, centro_y - radio - 2))
+        else:
+            pygame.draw.circle(superficie, Colores.MAGENTA_NEON, (centro_x, centro_y), radio)
+        
+        # Ojos (dos puntos) - solo si no está en spawn
+        if not en_spawn:
+            pygame.draw.circle(superficie, Colores.FONDO_OSCURO, 
+                             (centro_x - 3, centro_y - 2), 2)
+            pygame.draw.circle(superficie, Colores.FONDO_OSCURO,
+                             (centro_x + 3, centro_y - 2), 2)
+    
     def dibujar(self, superficie: pygame.Surface, mapa: Mapa, 
-                jugador: Jugador = None, offset: Tuple[int, int] = (0, 0)):
+                jugador: Jugador = None, offset: Tuple[int, int] = (0, 0),
+                trampas: Optional[List[Trampa]] = None,
+                enemigos: Optional[List[Enemigo]] = None):
         """
         Dibuja el mapa completo.
         
@@ -136,6 +200,8 @@ class RenderizadorMapa:
             mapa: Objeto Mapa a dibujar.
             jugador: Jugador a dibujar (opcional).
             offset: Offset (x, y) para posicionar el mapa.
+            trampas: Lista de trampas a dibujar (opcional).
+            enemigos: Lista de enemigos a dibujar (opcional).
         """
         offset_x, offset_y = offset
         pos_inicio = mapa.obtener_posicion_inicio_jugador()
@@ -155,6 +221,25 @@ class RenderizadorMapa:
                     self._dibujar_posicion_especial(superficie, x, y, es_inicio=True)
                 elif (fila, col) == pos_salida:
                     self._dibujar_posicion_especial(superficie, x, y, es_inicio=False)
+        
+        # Dibujar trampas
+        if trampas:
+            for trampa in trampas:
+                if trampa.esta_activa():
+                    pos = trampa.obtener_posicion()
+                    x = offset_x + pos[1] * self.tamano_celda
+                    y = offset_y + pos[0] * self.tamano_celda
+                    self._dibujar_trampa(superficie, x, y)
+        
+        # Dibujar enemigos
+        if enemigos:
+            for enemigo in enemigos:
+                if enemigo.esta_vivo():
+                    pos = enemigo.obtener_posicion()
+                    x = offset_x + pos[1] * self.tamano_celda
+                    y = offset_y + pos[0] * self.tamano_celda
+                    # Dibujar con opacidad reducida si está en spawn
+                    self._dibujar_enemigo(superficie, x, y, en_spawn=enemigo.estado == EstadoEnemigo.EN_SPAWN)
         
         # Dibujar jugador
         if jugador:

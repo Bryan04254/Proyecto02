@@ -11,7 +11,9 @@ from datetime import datetime
 from modelo.mapa import Mapa
 from modelo.jugador import Jugador
 from logica.generador_mapa import GeneradorMapa
+from logica import Dificultad
 from sistema.puntajes import ScoreBoard, Puntaje, ModoJuego
+from modos import GameModeEscapa, GameModeCazador
 
 from .config import Colores, Config
 from .componentes import Boton, BarraEnergia, SistemaParticulas, CuadroTexto
@@ -260,7 +262,10 @@ class PantallaJuego(PantallaBase):
         self.modo = modo
         self.nombre_jugador = nombre_jugador
         
-        # Componentes del juego
+        # Modo de juego (GameModeEscapa o GameModeCazador)
+        self.modo_juego = None
+        
+        # Componentes del juego (para compatibilidad con código existente)
         self.mapa = None
         self.jugador = None
         self.renderizador = RenderizadorMapa()
@@ -289,13 +294,26 @@ class PantallaJuego(PantallaBase):
     
     def _inicializar_juego(self):
         """Inicializa los componentes del juego."""
-        # Generar mapa
-        generador = GeneradorMapa(ancho=Config.MAPA_ANCHO, alto=Config.MAPA_ALTO)
-        self.mapa = generador.generar_mapa()
+        # Crear modo de juego según el modo seleccionado
+        if self.modo == "escapa":
+            self.modo_juego = GameModeEscapa(
+                nombre_jugador=self.nombre_jugador,
+                dificultad=Dificultad.NORMAL,
+                ancho_mapa=Config.MAPA_ANCHO,
+                alto_mapa=Config.MAPA_ALTO
+            )
+        else:  # cazador
+            self.modo_juego = GameModeCazador(
+                nombre_jugador=self.nombre_jugador,
+                dificultad=Dificultad.NORMAL,
+                tiempo_limite=Config.TIEMPO_PARTIDA_CAZADOR,
+                ancho_mapa=Config.MAPA_ANCHO,
+                alto_mapa=Config.MAPA_ALTO
+            )
         
-        # Crear jugador
-        pos_inicio = self.mapa.obtener_posicion_inicio_jugador()
-        self.jugador = Jugador(pos_inicio[0], pos_inicio[1], energia_maxima=Config.ENERGIA_INICIAL)
+        # Obtener referencias del modo de juego
+        self.mapa = self.modo_juego.mapa
+        self.jugador = self.modo_juego.jugador
         
         # Barra de energía
         self.barra_energia = BarraEnergia(Config.PANEL_X + 20, 180, 250, 30)
@@ -336,6 +354,7 @@ class PantallaJuego(PantallaBase):
         self.pausado = False
         self.juego_terminado = False
         self.victoria = False
+        # El modo_juego ya tiene su estado reseteado al inicializarse
     
     def _ir_menu(self):
         """Vuelve al menú principal."""
@@ -354,31 +373,41 @@ class PantallaJuego(PantallaBase):
             if self.pausado or self.juego_terminado:
                 return
             
+            # Colocar trampa (solo en modo Escapa)
+            if self.modo == "escapa" and (evento.key == pygame.K_t or evento.key == pygame.K_SPACE):
+                if self.modo_juego.colocar_trampa():
+                    # Partículas al colocar trampa
+                    pos = self.jugador.obtener_posicion()
+                    x = Config.MAPA_OFFSET_X + pos[1] * Config.TAMANO_CELDA + Config.TAMANO_CELDA // 2
+                    y = Config.MAPA_OFFSET_Y + pos[0] * Config.TAMANO_CELDA + Config.TAMANO_CELDA // 2
+                    self.particulas.emitir(x, y, Colores.ROJO_NEON, 5)
+                return
+            
             # Movimiento del jugador
             corriendo = pygame.key.get_mods() & pygame.KMOD_SHIFT
             movio = False
+            direccion = None
             
             if evento.key == pygame.K_UP or evento.key == pygame.K_w:
-                movio = self.jugador.mover_arriba(self.mapa, corriendo)
+                direccion = "arriba"
+                movio = self.modo_juego.mover_jugador("arriba", corriendo)
             elif evento.key == pygame.K_DOWN or evento.key == pygame.K_s:
-                movio = self.jugador.mover_abajo(self.mapa, corriendo)
+                direccion = "abajo"
+                movio = self.modo_juego.mover_jugador("abajo", corriendo)
             elif evento.key == pygame.K_LEFT or evento.key == pygame.K_a:
-                movio = self.jugador.mover_izquierda(self.mapa, corriendo)
+                direccion = "izquierda"
+                movio = self.modo_juego.mover_jugador("izquierda", corriendo)
             elif evento.key == pygame.K_RIGHT or evento.key == pygame.K_d:
-                movio = self.jugador.mover_derecha(self.mapa, corriendo)
+                direccion = "derecha"
+                movio = self.modo_juego.mover_jugador("derecha", corriendo)
             
             if movio:
-                self.movimientos += 1
                 # Partículas al moverse
                 pos = self.jugador.obtener_posicion()
                 x = Config.MAPA_OFFSET_X + pos[1] * Config.TAMANO_CELDA + Config.TAMANO_CELDA // 2
                 y = Config.MAPA_OFFSET_Y + pos[0] * Config.TAMANO_CELDA + Config.TAMANO_CELDA // 2
                 color = Colores.NARANJA_NEON if corriendo else Colores.CYAN_NEON
                 self.particulas.emitir(x, y, color, 3)
-                
-                # Verificar victoria
-                if self.jugador.ha_llegado_a_salida(self.mapa):
-                    self._terminar_juego(True)
         
         # Eventos de botones en pausa
         if self.pausado:
@@ -387,21 +416,18 @@ class PantallaJuego(PantallaBase):
     
     def _terminar_juego(self, victoria: bool):
         """Termina el juego."""
-        self.juego_terminado = True
-        self.victoria = victoria
-        
-        if victoria:
-            # Calcular puntos
-            tiempo_restante = max(0, self.tiempo_limite - self.tiempo_juego)
-            energia_restante = self.jugador.obtener_energia_actual()
-            
-            # Fórmula de puntos: base + bonus por tiempo + bonus por energía - penalización movimientos
-            self.puntos = 1000 + int(tiempo_restante * 10) + energia_restante * 5 - self.movimientos * 2
-            self.puntos = max(100, self.puntos)  # Mínimo 100 puntos
-            
-            # Guardar puntaje
-            scoreboard = ScoreBoard(Config.obtener_ruta_puntajes())
-            scoreboard.registrar_puntaje(self.modo, self.nombre_jugador, self.puntos)
+        # El modo_juego ya maneja la terminación y cálculo de puntos
+        # Solo sincronizamos el estado visual
+        if self.modo_juego:
+            self.juego_terminado = self.modo_juego.juego_terminado
+            self.victoria = self.modo_juego.victoria if hasattr(self.modo_juego, 'victoria') else victoria
+            estado = self.modo_juego.obtener_estado()
+            self.puntos = estado.get('puntos', 0)
+            self.movimientos = estado.get('movimientos', 0)
+            self.tiempo_juego = estado.get('tiempo_juego', 0)
+        else:
+            self.juego_terminado = True
+            self.victoria = victoria
     
     def actualizar(self, dt: float):
         """Actualiza la lógica del juego."""
@@ -413,16 +439,28 @@ class PantallaJuego(PantallaBase):
                     boton.actualizar(pos_mouse, dt)
             return
         
-        # Actualizar tiempo
-        self.tiempo_juego += dt
-        
-        # Verificar tiempo límite
-        if self.tiempo_juego >= self.tiempo_limite:
-            self._terminar_juego(False)
-            return
-        
-        # Recuperar energía gradualmente
-        self.jugador.actualizar_energia(dt, tasa_recuperacion=2)
+        # Actualizar el modo de juego (esto actualiza enemigos, trampas, etc.)
+        if self.modo_juego:
+            self.modo_juego.actualizar(dt)
+            
+            # Sincronizar estado
+            estado = self.modo_juego.obtener_estado()
+            self.tiempo_juego = estado.get('tiempo_juego', 0)
+            self.puntos = estado.get('puntos', 0)
+            self.movimientos = estado.get('movimientos', 0)
+            self.juego_terminado = estado.get('juego_terminado', False)
+            self.victoria = estado.get('victoria', False) if 'victoria' in estado else False
+            
+            # Verificar si el juego terminó
+            if self.juego_terminado:
+                return
+        else:
+            # Fallback al sistema antiguo si no hay modo_juego
+            self.tiempo_juego += dt
+            if self.tiempo_juego >= self.tiempo_limite:
+                self._terminar_juego(False)
+                return
+            self.jugador.actualizar_energia(dt, tasa_recuperacion=2)
         
         # Actualizar componentes visuales
         self.renderizador.actualizar(dt, self.jugador)
@@ -433,10 +471,20 @@ class PantallaJuego(PantallaBase):
         """Dibuja la pantalla del juego."""
         superficie.fill(Colores.FONDO_OSCURO)
         
-        # Dibujar mapa
+        # Dibujar mapa con trampas y enemigos si están disponibles
+        trampas = None
+        enemigos = None
+        if self.modo_juego and self.modo == "escapa":
+            trampas = self.modo_juego.gestor_trampas.obtener_trampas_activas()
+            enemigos = self.modo_juego.enemigos
+        elif self.modo_juego and self.modo == "cazador":
+            enemigos = self.modo_juego.enemigos
+        
         self.renderizador.dibujar(
             superficie, self.mapa, self.jugador,
-            offset=(Config.MAPA_OFFSET_X, Config.MAPA_OFFSET_Y)
+            offset=(Config.MAPA_OFFSET_X, Config.MAPA_OFFSET_Y),
+            trampas=trampas,
+            enemigos=enemigos
         )
         
         # Dibujar partículas
@@ -480,29 +528,58 @@ class PantallaJuego(PantallaBase):
         superficie.blit(tiempo, (Config.PANEL_X + 20, 110))
         
         # Energía
-        energia_label = self.fuente_ui.render("⚡ Energía:", True, Colores.TEXTO)
+        energia_label = self.fuente_ui.render("Energia:", True, Colores.TEXTO)
         superficie.blit(energia_label, (Config.PANEL_X + 20, 155))
         self.barra_energia.dibujar(superficie, self.fuente_ui)
         
         # Estadísticas
         stats_y = 240
         stats = [
-            f"📍 Movimientos: {self.movimientos}",
-            f"💎 Puntos est.: {self._calcular_puntos_estimados()}",
+            f"Movimientos: {self.movimientos}",
+            f"Puntos: {self.puntos}",
         ]
+        
+        # Agregar información de trampas si estamos en modo Escapa
+        if self.modo == "escapa" and self.modo_juego:
+            estado = self.modo_juego.obtener_estado()
+            trampas_activas = estado.get('trampas_activas', 0)
+            cooldown = estado.get('cooldown_trampa', 0)
+            enemigos_eliminados = estado.get('enemigos_eliminados', 0)
+            
+            stats.append(f"Trampas: {trampas_activas}/3")
+            if cooldown > 0:
+                stats.append(f"Cooldown: {cooldown:.1f}s")
+            stats.append(f"Enemigos eliminados: {enemigos_eliminados}")
         
         for i, stat in enumerate(stats):
             texto = self.fuente_ui.render(stat, True, Colores.TEXTO_SECUNDARIO)
-            superficie.blit(texto, (Config.PANEL_X + 20, stats_y + i * 35))
+            superficie.blit(texto, (Config.PANEL_X + 20, stats_y + i * 30))
         
-        # Leyenda de tiles
-        self._dibujar_leyenda(superficie, Config.PANEL_X + 20, 350)
+        # Leyenda de tiles (ajustar posición según cantidad de stats)
+        leyenda_y = 240 + len(stats) * 30 + 20
+        self._dibujar_leyenda(superficie, Config.PANEL_X + 20, leyenda_y)
         
-        # Controles
-        self._dibujar_controles_mini(superficie, Config.PANEL_X + 20, 550)
+        # Controles (ajustar posición según dónde termina la leyenda)
+        altura_leyenda = self._obtener_altura_leyenda()
+        controles_y = leyenda_y + altura_leyenda + 20  # 20 píxeles de espacio adicional
+        
+        # Calcular altura de controles (título + items)
+        num_controles = 3 if self.modo != "escapa" else 4
+        altura_controles = 28 + num_controles * 24  # título + items
+        
+        # Asegurar que no se salga de la pantalla
+        if controles_y + altura_controles > self.alto - 20:
+            # Si no cabe, mover los controles más arriba o reducir espacio
+            controles_y = max(leyenda_y + altura_leyenda + 10, self.alto - altura_controles - 20)
+        
+        self._dibujar_controles_mini(superficie, Config.PANEL_X + 20, controles_y)
     
     def _calcular_puntos_estimados(self) -> int:
         """Calcula los puntos estimados actuales."""
+        if self.modo_juego:
+            estado = self.modo_juego.obtener_estado()
+            return estado.get('puntos', 0)
+        # Fallback al cálculo antiguo
         tiempo_restante = max(0, self.tiempo_limite - self.tiempo_juego)
         energia = self.jugador.obtener_energia_actual()
         puntos = 1000 + int(tiempo_restante * 10) + energia * 5 - self.movimientos * 2
@@ -510,7 +587,7 @@ class PantallaJuego(PantallaBase):
     
     def _dibujar_leyenda(self, superficie: pygame.Surface, x: int, y: int):
         """Dibuja la leyenda de tipos de tile."""
-        titulo = self.fuente_ui.render("📋 LEYENDA:", True, Colores.TEXTO)
+        titulo = self.fuente_ui.render("LEYENDA:", True, Colores.TEXTO)
         superficie.blit(titulo, (x, y))
         
         items = [
@@ -519,7 +596,7 @@ class PantallaJuego(PantallaBase):
             (Colores.TUNEL, "Túnel - Solo tú puedes"),
             (Colores.LIANA, "Liana - Solo enemigos"),
             (Colores.INICIO, "Inicio"),
-            (Colores.SALIDA, "Salida ★"),
+            (Colores.SALIDA, "Salida"),
         ]
         
         for i, (color, texto) in enumerate(items):
@@ -527,6 +604,12 @@ class PantallaJuego(PantallaBase):
             pygame.draw.rect(superficie, color, (x, rect_y, 18, 18), border_radius=3)
             label = self.fuente_ui.render(texto, True, Colores.TEXTO_SECUNDARIO)
             superficie.blit(label, (x + 26, rect_y))
+    
+    def _obtener_altura_leyenda(self) -> int:
+        """Calcula la altura total de la leyenda."""
+        # Título: ~28 píxeles + 10 de espacio
+        # 6 items * 28 píxeles cada uno
+        return 28 + 10 + 6 * 28
     
     def _dibujar_controles_mini(self, superficie: pygame.Surface, x: int, y: int):
         """Dibuja los controles en formato compacto."""
@@ -538,6 +621,10 @@ class PantallaJuego(PantallaBase):
             "SHIFT - Correr",
             "ESC - Pausar"
         ]
+        
+        # Agregar control de trampas solo en modo Escapa
+        if self.modo == "escapa":
+            controles.insert(2, "T / ESPACIO - Colocar trampa")
         
         for i, ctrl in enumerate(controles):
             texto = self.fuente_ui.render(ctrl, True, Colores.TEXTO_DESHABILITADO)
