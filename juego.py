@@ -18,7 +18,7 @@ Controles:
 import pygame
 import sys
 import os
-
+import traceback
 # Agregar el directorio del proyecto al path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -129,7 +129,7 @@ def main():
         juego.ejecutar()
     except Exception as e:
         print(f"\n[ERROR] Error al ejecutar el juego: {e}")
-        import traceback
+        
         traceback.print_exc()
         sys.exit(1)
 
