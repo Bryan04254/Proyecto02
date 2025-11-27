@@ -114,7 +114,7 @@ class ScoreBoard:
     Clase que gestiona los puntajes y el top 5 por modo de juego.
     """
     
-    def __init__(self, directorio_puntajes: str = "puntajes"):
+    def __init__(self, directorio_puntajes: str = "data/puntajes"):
         """
         Inicializa el ScoreBoard.
         

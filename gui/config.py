@@ -70,7 +70,7 @@ class Config:
     ANCHO_VENTANA = 1280
     ALTO_VENTANA = 720
     FPS = 60
-    TITULO = "🏃 Escapa del Laberinto 🏃"
+    TITULO = "Escapa del Laberinto"
     
     # Mapa
     TAMANO_CELDA = 32

@@ -10,7 +10,7 @@ from datetime import datetime
 
 from modelo.mapa import Mapa
 from modelo.jugador import Jugador
-from core.generador_mapa import GeneradorMapa
+from logica.generador_mapa import GeneradorMapa
 from sistema.puntajes import ScoreBoard, Puntaje, ModoJuego
 
 from .config import Colores, Config
@@ -59,7 +59,7 @@ class MenuPrincipal(PantallaBase):
         
         # Input del nombre
         self.cuadro_nombre = CuadroTexto(
-            ancho // 2 - 200, 280, 400, 50,
+            ancho // 2 - 200, 320, 400, 50,
             placeholder="Tu nombre..."
         )
         self.nombre_jugador = ""
@@ -86,16 +86,16 @@ class MenuPrincipal(PantallaBase):
         centro_x = self.ancho // 2
         
         self.botones = [
-            Boton(centro_x - 150, 380, 300, 55, "🏃 MODO ESCAPA",
+            Boton(centro_x - 150, 410, 300, 55, "MODO ESCAPA",
                   color=Colores.CYAN_NEON,
                   accion=lambda: self._seleccionar_modo("escapa")),
-            Boton(centro_x - 150, 450, 300, 55, "🎯 MODO CAZADOR",
+            Boton(centro_x - 150, 485, 300, 55, "MODO CAZADOR",
                   color=Colores.MAGENTA_NEON,
                   accion=lambda: self._seleccionar_modo("cazador")),
-            Boton(centro_x - 150, 520, 300, 55, "🏆 PUNTAJES",
+            Boton(centro_x - 150, 560, 300, 55, "PUNTAJES",
                   color=Colores.AMARILLO_NEON,
                   accion=self._ver_puntajes),
-            Boton(centro_x - 150, 590, 300, 55, "❌ SALIR",
+            Boton(centro_x - 150, 635, 300, 55, "SALIR",
                   color=Colores.ROJO_NEON,
                   accion=self._salir),
         ]
@@ -186,14 +186,14 @@ class MenuPrincipal(PantallaBase):
         subtitulo = self.fuente_subtitulo.render(
             "Un juego de laberinto con emoción", True, Colores.TEXTO_SECUNDARIO
         )
-        subtitulo_rect = subtitulo.get_rect(center=(self.ancho // 2, 180))
+        subtitulo_rect = subtitulo.get_rect(center=(self.ancho // 2, 200))
         superficie.blit(subtitulo, subtitulo_rect)
         
         # Instrucción para el nombre
         instruccion = self.fuente_info.render(
             "Ingresa tu nombre para guardar tus puntajes:", True, Colores.TEXTO
         )
-        instruccion_rect = instruccion.get_rect(center=(self.ancho // 2, 255))
+        instruccion_rect = instruccion.get_rect(center=(self.ancho // 2, 285))
         superficie.blit(instruccion, instruccion_rect)
         
         # Cuadro de nombre
@@ -231,17 +231,23 @@ class MenuPrincipal(PantallaBase):
     def _dibujar_controles(self, superficie: pygame.Surface):
         """Dibuja las instrucciones de controles."""
         controles = [
-            "🎮 CONTROLES:",
-            "← ↑ → ↓  Mover",
-            "SHIFT    Correr (gasta energía)",
-            "ESC      Pausar / Menú"
+            "CONTROLES:",
+            "Flechas / WASD  Mover",
+            "SHIFT    Correr (gasta energia)",
+            "ESC      Pausar / Menu"
         ]
         
-        y_inicio = self.alto - 100
+        # Posicionar controles en la esquina inferior izquierda
+        # para evitar superposición con los botones
+        x_inicio = 30  # Margen izquierdo
+        y_inicio = self.alto - 100  # Desde abajo con margen
+        
         for i, texto in enumerate(controles):
             color = Colores.CYAN_NEON if i == 0 else Colores.TEXTO_SECUNDARIO
             render = self.fuente_info.render(texto, True, color)
-            rect = render.get_rect(center=(self.ancho // 2, y_inicio + i * 22))
+            y_pos = y_inicio + i * 22
+            # Alinear a la izquierda en lugar del centro
+            rect = render.get_rect(left=x_inicio, top=y_pos)
             superficie.blit(render, rect)
 
 
@@ -309,10 +315,10 @@ class PantallaJuego(PantallaBase):
             Boton(centro_x - 120, 350, 240, 50, "▶ CONTINUAR",
                   color=Colores.VERDE_NEON,
                   accion=self._continuar),
-            Boton(centro_x - 120, 420, 240, 50, "🔄 REINICIAR",
+            Boton(centro_x - 120, 420, 240, 50, "REINICIAR",
                   color=Colores.AMARILLO_NEON,
                   accion=self._reiniciar),
-            Boton(centro_x - 120, 490, 240, 50, "🏠 MENÚ",
+            Boton(centro_x - 120, 490, 240, 50, "MENU",
                   color=Colores.ROJO_NEON,
                   accion=self._ir_menu),
         ]
@@ -456,7 +462,7 @@ class PantallaJuego(PantallaBase):
                         (Config.PANEL_X, 0), (Config.PANEL_X, self.alto), 2)
         
         # Título del modo
-        modo_texto = "🏃 MODO ESCAPA" if self.modo == "escapa" else "🎯 MODO CAZADOR"
+        modo_texto = "MODO ESCAPA" if self.modo == "escapa" else "MODO CAZADOR"
         color_modo = Colores.CYAN_NEON if self.modo == "escapa" else Colores.MAGENTA_NEON
         titulo = self.fuente_titulo.render(modo_texto, True, color_modo)
         superficie.blit(titulo, (Config.PANEL_X + 20, 20))
@@ -470,7 +476,7 @@ class PantallaJuego(PantallaBase):
         minutos = int(tiempo_restante) // 60
         segundos = int(tiempo_restante) % 60
         color_tiempo = Colores.TEXTO if tiempo_restante > 30 else Colores.ROJO_NEON
-        tiempo = self.fuente_titulo.render(f"⏱ {minutos:02d}:{segundos:02d}", True, color_tiempo)
+        tiempo = self.fuente_titulo.render(f"Tiempo: {minutos:02d}:{segundos:02d}", True, color_tiempo)
         superficie.blit(tiempo, (Config.PANEL_X + 20, 110))
         
         # Energía
@@ -524,11 +530,11 @@ class PantallaJuego(PantallaBase):
     
     def _dibujar_controles_mini(self, superficie: pygame.Surface, x: int, y: int):
         """Dibuja los controles en formato compacto."""
-        titulo = self.fuente_ui.render("🎮 CONTROLES:", True, Colores.TEXTO)
+        titulo = self.fuente_ui.render("CONTROLES:", True, Colores.TEXTO)
         superficie.blit(titulo, (x, y))
         
         controles = [
-            "↑←↓→ / WASD - Mover",
+            "Flechas / WASD - Mover",
             "SHIFT - Correr",
             "ESC - Pausar"
         ]
@@ -623,13 +629,13 @@ class PantallaPuntajes(PantallaBase):
         # Crear botones
         centro_x = self.ancho // 2
         self.botones = [
-            Boton(centro_x - 250, 180, 200, 45, "🏃 ESCAPA",
+            Boton(centro_x - 250, 180, 200, 45, "ESCAPA",
                   color=Colores.CYAN_NEON,
                   accion=lambda: self._cambiar_modo("escapa")),
-            Boton(centro_x + 50, 180, 200, 45, "🎯 CAZADOR",
+            Boton(centro_x + 50, 180, 200, 45, "CAZADOR",
                   color=Colores.MAGENTA_NEON,
                   accion=lambda: self._cambiar_modo("cazador")),
-            Boton(centro_x - 100, 620, 200, 45, "🏠 VOLVER",
+            Boton(centro_x - 100, 620, 200, 45, "VOLVER",
                   color=Colores.AMARILLO_NEON,
                   accion=self._volver),
         ]
@@ -664,7 +670,7 @@ class PantallaPuntajes(PantallaBase):
         superficie.fill(Colores.FONDO_OSCURO)
         
         # Título
-        titulo = self.fuente_titulo.render("🏆 TABLA DE PUNTAJES 🏆", True, Colores.ORO)
+        titulo = self.fuente_titulo.render("TABLA DE PUNTAJES", True, Colores.ORO)
         titulo_rect = titulo.get_rect(center=(self.ancho // 2, 80))
         superficie.blit(titulo, titulo_rect)
         
@@ -774,10 +780,10 @@ class PantallaFinJuego(PantallaBase):
         
         centro_x = self.ancho // 2
         self.botones = [
-            Boton(centro_x - 150, 500, 300, 55, "🔄 JUGAR DE NUEVO",
+            Boton(centro_x - 150, 500, 300, 55, "JUGAR DE NUEVO",
                   color=Colores.VERDE_NEON,
                   accion=self._jugar_nuevo),
-            Boton(centro_x - 150, 570, 300, 55, "🏠 MENÚ PRINCIPAL",
+            Boton(centro_x - 150, 570, 300, 55, "MENU PRINCIPAL",
                   color=Colores.CYAN_NEON,
                   accion=self._ir_menu),
         ]
@@ -834,9 +840,9 @@ class PantallaFinJuego(PantallaBase):
         # Estadísticas
         if self.victoria:
             stats = [
-                f"🏆 Puntos: {self.puntos:,}",
-                f"⏱ Tiempo: {int(self.tiempo)}s",
-                f"👣 Movimientos: {self.movimientos}"
+                f"Puntos: {self.puntos:,}",
+                f"Tiempo: {int(self.tiempo)}s",
+                f"Movimientos: {self.movimientos}"
             ]
             
             for i, stat in enumerate(stats):

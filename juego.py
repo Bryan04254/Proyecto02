@@ -7,7 +7,7 @@ Un emocionante juego de laberinto donde debes escapar antes de que
 se acabe el tiempo. ¡Cuidado con tu energía al correr!
 
 Ejecuta este archivo para iniciar el juego con GUI:
-    python main_gui.py
+    python juego.py
 
 Controles:
     - Flechas / WASD: Mover
@@ -115,20 +115,20 @@ class JuegoLaberinto:
 def main():
     """Función principal."""
     print("\n" + "=" * 60)
-    print("   🏃 ESCAPA DEL LABERINTO - Edición Gráfica 🏃")
+    print("   ESCAPA DEL LABERINTO - Edicion Grafica")
     print("=" * 60)
-    print("\n🎮 Iniciando el juego...\n")
+    print("\nIniciando el juego...\n")
     print("Controles:")
-    print("  • Flechas / WASD: Mover al jugador")
-    print("  • SHIFT + Dirección: Correr (gasta energía)")
-    print("  • ESC: Pausar / Volver al menú")
+    print("  - Flechas / WASD: Mover al jugador")
+    print("  - SHIFT + Direccion: Correr (gasta energia)")
+    print("  - ESC: Pausar / Volver al menu")
     print("\n" + "=" * 60 + "\n")
     
     try:
         juego = JuegoLaberinto()
         juego.ejecutar()
     except Exception as e:
-        print(f"\n❌ Error al ejecutar el juego: {e}")
+        print(f"\n[ERROR] Error al ejecutar el juego: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

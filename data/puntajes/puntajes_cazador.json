@@ -1,0 +1,62 @@
+[
+  {
+    "nombre_jugador": "María",
+    "modo": "cazador",
+    "puntos": 3500,
+    "fecha": "2025-11-20T15:00:00"
+  },
+  {
+    "nombre_jugador": "María",
+    "modo": "cazador",
+    "puntos": 3500,
+    "fecha": "2025-11-24T20:56:02.746950"
+  },
+  {
+    "nombre_jugador": "Juan",
+    "modo": "cazador",
+    "puntos": 3000,
+    "fecha": "2025-11-19T14:30:00"
+  },
+  {
+    "nombre_jugador": "Juan",
+    "modo": "cazador",
+    "puntos": 3000,
+    "fecha": "2025-11-24T20:56:02.743086"
+  },
+  {
+    "nombre_jugador": "Jugador",
+    "modo": "cazador",
+    "puntos": 2969,
+    "fecha": "2025-11-24T21:34:52.258899"
+  },
+  {
+    "nombre_jugador": "Jugador",
+    "modo": "cazador",
+    "puntos": 2803,
+    "fecha": "2025-11-24T21:33:02.460119"
+  },
+  {
+    "nombre_jugador": "Pedro",
+    "modo": "cazador",
+    "puntos": 2800,
+    "fecha": "2025-11-18T11:45:00"
+  },
+  {
+    "nombre_jugador": "Pedro",
+    "modo": "cazador",
+    "puntos": 2800,
+    "fecha": "2025-11-24T20:56:02.760207"
+  },
+  {
+    "nombre_jugador": "Jugador",
+    "modo": "cazador",
+    "puntos": 2647,
+    "fecha": "2025-11-24T20:47:45.878698"
+  },
+  {
+    "nombre_jugador": "Jugador",
+    "modo": "cazador",
+    "puntos": 2621,
+    "fecha": "2025-11-24T21:35:08.941927"
+  }
+]

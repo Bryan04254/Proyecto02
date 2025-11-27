@@ -1,4 +1,4 @@
-# 🏃 Escapa del Laberinto
+# Escapa del Laberinto
 
 Un emocionante juego de laberinto con interfaz gráfica donde debes escapar antes de que se acabe el tiempo. ¡Cuidado con tu energía al correr!
 
@@ -6,7 +6,7 @@ Un emocionante juego de laberinto con interfaz gráfica donde debes escapar ante
 ![Python](https://img.shields.io/badge/Python-3.7+-green)
 ![Pygame](https://img.shields.io/badge/GUI-Pygame-red)
 
-## 🎮 Características
+## Características
 
 - **Dos modos de juego**: Escapa y Cazador
 - **Sistema de energía**: Administra tu energía al correr
@@ -14,38 +14,48 @@ Un emocionante juego de laberinto con interfaz gráfica donde debes escapar ante
 - **Tabla de puntajes**: Compite por el mejor puntaje
 - **Interfaz visual moderna**: Tema cyberpunk/retro con animaciones
 
-## 📁 Estructura del Proyecto
+## Estructura del Proyecto
 
 ```
 Proyecto02/
-├── gui/                   # 🆕 Interfaz Gráfica
+├── modelo/                # Entidades del juego
+│   ├── __init__.py
+│   ├── tile.py            # Casillas (Camino, Muro, Liana, Túnel)
+│   ├── mapa.py            # Clase Mapa
+│   ├── jugador.py         # Clase Jugador con energía
+│   ├── enemigo.py         # Clase Enemigo con IA
+│   └── trampa.py          # Clase Trampa y GestorTrampas
+├── logica/                # Lógica del juego
+│   ├── __init__.py
+│   ├── generador_mapa.py  # Generación de laberintos
+│   └── dificultad.py      # Sistema de dificultad
+├── modos/                 # Modos de juego
+│   ├── __init__.py
+│   ├── modo_escapa.py     # Modo Escapa
+│   └── modo_cazador.py    # Modo Cazador
+├── sistema/               # Sistemas auxiliares
+│   ├── __init__.py
+│   ├── jugador_info.py    # Registro de jugadores
+│   └── puntajes.py        # Sistema de puntajes con fechas
+├── gui/                   # Interfaz Gráfica
 │   ├── __init__.py
 │   ├── config.py          # Configuración y colores
 │   ├── componentes.py     # Botones, barras, partículas
 │   ├── renderizador.py    # Renderizado del mapa
 │   └── pantallas.py       # Menú, juego, puntajes
-├── modelo/                # Clases del mundo del juego
-│   ├── __init__.py
-│   ├── tile.py            # Casillas (Camino, Muro, Liana, Túnel)
-│   ├── mapa.py            # Clase Mapa
-│   └── jugador.py         # Clase Jugador con energía
-├── core/                  # Lógica del juego
-│   ├── __init__.py
-│   └── generador_mapa.py  # Generación de laberintos
-├── sistema/               # Sistemas auxiliares
-│   ├── __init__.py
-│   ├── jugador_info.py    # Registro de jugadores
-│   └── puntajes.py        # Sistema de puntajes con fechas
-├── puntajes/              # Archivos JSON de puntajes
-│   ├── puntajes_escapa.json
-│   └── puntajes_cazador.json
-├── main_gui.py            # 🎮 EJECUTAR JUEGO CON GUI
-├── main.py                # Demo del núcleo lógico (sin GUI)
+├── data/                  # Datos del juego
+│   └── puntajes/          # Archivos JSON de puntajes
+│       ├── puntajes_escapa.json
+│       └── puntajes_cazador.json
+├── ejemplos/              # Ejemplos y demos
+│   └── demo_nucleo.py     # Demostración del núcleo lógico
+├── juego.py               # EJECUTAR JUEGO CON GUI
+├── juego_texto.py         # Interfaz de texto para probar modos
 ├── requirements.txt       # Dependencias
 └── README.md
 ```
 
-## 🚀 Instalación y Ejecución
+## Instalación y Ejecución
 
 ### Requisitos
 
@@ -73,35 +83,46 @@ pip install pygame
 
 ### Ejecutar el Juego
 
+**Interfaz Gráfica (Recomendado):**
 ```bash
 cd Proyecto02
-python3 main_gui.py
+python juego.py
 ```
 
-## 🎯 Controles
+**Interfaz de Texto (Para probar modos):**
+```bash
+python juego_texto.py
+```
+
+**Ejemplos del Núcleo Lógico:**
+```bash
+python ejemplos/demo_nucleo.py
+```
+
+## Controles
 
 | Tecla | Acción |
 |-------|--------|
-| `↑ ↓ ← →` o `W A S D` | Mover al jugador |
+| Flechas o `W A S D` | Mover al jugador |
 | `SHIFT` + Dirección | Correr (gasta más energía) |
 | `ESC` | Pausar / Menú |
 
-## 🌟 Tipos de Terreno
+## Tipos de Terreno
 
 | Terreno | Descripción | Jugador | Enemigo |
 |---------|-------------|---------|---------|
-| 🟫 **Camino** | Paso libre | ✅ | ✅ |
-| 🟪 **Muro** | Bloqueado | ❌ | ❌ |
-| 🟦 **Túnel** | Solo jugador | ✅ | ❌ |
-| 🟩 **Liana** | Solo enemigos | ❌ | ✅ |
+| **Camino** | Paso libre | Si | Si |
+| **Muro** | Bloqueado | No | No |
+| **Túnel** | Solo jugador | Si | No |
+| **Liana** | Solo enemigos | No | Si |
 
-## ⚡ Sistema de Energía
+## Sistema de Energía
 
 - **Caminar**: Consume 1 punto de energía
 - **Correr**: Consume 3 puntos de energía
 - **Recuperación**: La energía se regenera gradualmente
 
-## 🏆 Sistema de Puntajes
+## Sistema de Puntajes
 
 Los puntajes se calculan basándose en:
 - **Tiempo restante**: +10 puntos por segundo
@@ -111,12 +132,12 @@ Los puntajes se calculan basándose en:
 
 Los puntajes se guardan con fecha y hora en archivos JSON.
 
-## 📝 Ejemplos de Uso del Núcleo Lógico
+## Ejemplos de Uso del Núcleo Lógico
 
 ### Generar un mapa aleatorio
 
 ```python
-from core import GeneradorMapa
+from logica import GeneradorMapa
 
 generador = GeneradorMapa(ancho=20, alto=15)
 mapa = generador.generar_mapa()
@@ -158,7 +179,7 @@ for puntaje in top5:
     print(f"{puntaje.nombre_jugador}: {puntaje.puntos} pts - {puntaje.obtener_fecha_formateada()}")
 ```
 
-## 🎨 Personalización
+## Personalización
 
 El tema visual se puede modificar en `gui/config.py`:
 
@@ -173,7 +194,7 @@ class Colores:
     # ...
 ```
 
-## 🔧 Configuración
+## Configuración
 
 En `gui/config.py` puedes ajustar:
 
@@ -192,7 +213,7 @@ class Config:
     TIEMPO_PARTIDA_CAZADOR = 180  # segundos
 ```
 
-## 📚 Módulos
+## Módulos
 
 ### GUI (`gui/`)
 - **config.py**: Configuración y paleta de colores
@@ -204,18 +225,25 @@ class Config:
 - **tile.py**: Tipos de casillas del laberinto
 - **mapa.py**: Clase que representa el mapa
 - **jugador.py**: Clase del jugador con sistema de energía
+- **enemigo.py**: Clase Enemigo con IA (perseguir/huir)
+- **trampa.py**: Clase Trampa y GestorTrampas
 
-### Core (`core/`)
+### Lógica (`logica/`)
 - **generador_mapa.py**: Algoritmo DFS para generar laberintos
+- **dificultad.py**: Sistema de dificultad (Fácil, Normal, Difícil)
+
+### Modos (`modos/`)
+- **modo_escapa.py**: Modo de juego Escapa (llegar a la salida)
+- **modo_cazador.py**: Modo de juego Cazador (atrapar enemigos)
 
 ### Sistema (`sistema/`)
 - **puntajes.py**: Sistema de puntajes con persistencia JSON
 - **jugador_info.py**: Información del jugador
 
-## 👥 Autores
+## Autores
 
 Iniciado por Bryan Charpentier
 
 ---
 
-¡Disfruta el juego! 🎮
+¡Disfruta el juego!

@@ -1,9 +1,9 @@
 """
-Archivo principal con ejemplos de uso del núcleo lógico del juego.
+Archivo de demostración con ejemplos de uso del núcleo lógico del juego.
 """
 
 from modelo import Tile, Camino, Muro, Liana, Tunel, Mapa, Jugador
-from core import GeneradorMapa
+from logica import GeneradorMapa
 from sistema import JugadorInfo, registrar_jugador, Puntaje, ScoreBoard, ModoJuego
 
 
