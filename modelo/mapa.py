@@ -37,35 +37,48 @@ class Mapa:
         Raises:
             ValueError: Si las dimensiones no coinciden o las posiciones son inválidas.
         """
-        # Validaciones básicas
+        # ============================================
+        # VALIDACIONES DE INTEGRIDAD DEL MAPA
+        # ============================================
+        
+        # Validar dimensiones positivas
         if ancho <= 0 or alto <= 0:
             raise ValueError("El ancho y alto del mapa deben ser mayores a 0")
         
+        # Validar que el número de filas coincida con el alto especificado
         if len(casillas) != alto:
             raise ValueError(f"El número de filas en casillas ({len(casillas)}) no coincide con alto ({alto})")
         
+        # Validar que el número de columnas coincida con el ancho especificado
+        # (solo si hay al menos una fila)
         if len(casillas) > 0 and len(casillas[0]) != ancho:
             raise ValueError(f"El número de columnas en casillas ({len(casillas[0])}) no coincide con ancho ({ancho})")
         
+        # Validar posición inicial del jugador
         fila_inicio, col_inicio = posicion_inicio
-        
         if not (0 <= fila_inicio < alto and 0 <= col_inicio < ancho):
             raise ValueError(f"Posición inicial inválida: {posicion_inicio} fuera de límites ({alto}x{ancho})")
         
-        # Validar todas las salidas
+        # Validar que haya al menos una salida
         if not posiciones_salida or len(posiciones_salida) == 0:
             raise ValueError("Debe haber al menos una salida")
         
+        # Validar que todas las salidas estén dentro de los límites del mapa
         for fila_salida, col_salida in posiciones_salida:
             if not (0 <= fila_salida < alto and 0 <= col_salida < ancho):
                 raise ValueError(f"Posición de salida inválida: ({fila_salida}, {col_salida}) fuera de límites ({alto}x{ancho})")
         
+        # ============================================
+        # INICIALIZACIÓN DE ATRIBUTOS
+        # ============================================
         self.ancho = ancho
         self.alto = alto
-        self.casillas = casillas
-        self.posicion_inicio = posicion_inicio
-        self.posiciones_salida = posiciones_salida
+        self.casillas = casillas  # Matriz 2D de objetos Tile
+        self.posicion_inicio = posicion_inicio  # Posición inicial del jugador
+        self.posiciones_salida = posiciones_salida  # Lista de posiciones de salida
+        
         # Mantener compatibilidad hacia atrás: primera salida como salida principal
+        # (algunos métodos antiguos pueden usar posicion_salida en singular)
         self.posicion_salida = posiciones_salida[0]
     
     def es_posicion_valida(self, fila: int, columna: int) -> bool:
@@ -96,10 +109,16 @@ class Mapa:
         if not self.es_posicion_valida(fila, columna):
             return False
         
+        # Obtener el tile en la posición especificada
         tile = self.casillas[fila][columna]
         
-        # En modo cazador, las reglas se invierten:
-        # - Jugador puede pasar por Liana (verde) pero no por Tunel (azul)
+        # ============================================
+        # REGLAS ESPECIALES PARA MODO CAZADOR
+        # ============================================
+        # En modo cazador, las reglas de transición se invierten:
+        # - Jugador puede pasar por Liana (verde) pero NO por Tunel (azul)
+        # - Esto crea una mecánica diferente donde el jugador y los enemigos
+        #   tienen acceso a diferentes áreas del mapa
         if modo == "cazador":
             from modelo.tile import Liana, Tunel
             if isinstance(tile, Liana):
@@ -107,6 +126,7 @@ class Mapa:
             elif isinstance(tile, Tunel):
                 return False  # En modo cazador, el jugador NO puede pasar por Tunel
         
+        # En modo escapa, usar las reglas normales del tile
         return tile.permite_paso_jugador()
     
     def es_transitable_por_enemigo(self, fila: int, columna: int, modo: str = "escapa") -> bool:
@@ -124,10 +144,15 @@ class Mapa:
         if not self.es_posicion_valida(fila, columna):
             return False
         
+        # Obtener el tile en la posición especificada
         tile = self.casillas[fila][columna]
         
-        # En modo cazador, las reglas se invierten:
-        # - Enemigos pueden pasar por Tunel (azul) pero no por Liana (verde)
+        # ============================================
+        # REGLAS ESPECIALES PARA MODO CAZADOR
+        # ============================================
+        # En modo cazador, las reglas de transición se invierten:
+        # - Enemigos pueden pasar por Tunel (azul) pero NO por Liana (verde)
+        # - Esto complementa las reglas del jugador para crear mecánicas asimétricas
         if modo == "cazador":
             from modelo.tile import Liana, Tunel
             if isinstance(tile, Tunel):
@@ -135,6 +160,7 @@ class Mapa:
             elif isinstance(tile, Liana):
                 return False  # En modo cazador, los enemigos NO pueden pasar por Liana
         
+        # En modo escapa, usar las reglas normales del tile
         return tile.permite_paso_enemigo()
     
     def obtener_casilla(self, fila: int, columna: int) -> Optional[Tile]:
@@ -210,40 +236,54 @@ class Mapa:
             # Si no se especifica destino, verificar si hay camino a cualquiera de las salidas
             return any(self.existe_camino_valido(desde, salida) for salida in self.posiciones_salida)
         
+        # Extraer coordenadas de inicio y fin
         fila_inicio, col_inicio = desde
         fila_fin, col_fin = hasta
         
-        # Verificar que las posiciones sean válidas y transitables
+        # Verificar que las posiciones sean válidas y transitables para el jugador
         if not self.es_transitable_por_jugador(fila_inicio, col_inicio):
             return False
         if not self.es_transitable_por_jugador(fila_fin, col_fin):
             return False
         
-        # BFS para encontrar camino
-        visitado = [[False for _ in range(self.ancho)] for _ in range(self.alto)]
-        cola = deque([(fila_inicio, col_inicio)])
-        visitado[fila_inicio][col_inicio] = True
+        # ============================================
+        # BFS (Breadth-First Search) PARA ENCONTRAR CAMINO
+        # ============================================
+        # BFS explora el mapa nivel por nivel hasta encontrar el destino
+        # Es ideal para encontrar el camino más corto en un grafo no ponderado
         
+        # Inicializar estructuras de datos para BFS
+        visitado = [[False for _ in range(self.ancho)] for _ in range(self.alto)]  # Matriz de visitados
+        cola = deque([(fila_inicio, col_inicio)])  # Cola FIFO para BFS
+        visitado[fila_inicio][col_inicio] = True  # Marcar inicio como visitado
+        
+        # Direcciones posibles: arriba, abajo, izquierda, derecha
         direcciones = [(-1, 0), (1, 0), (0, -1), (0, 1)]
         
+        # BFS: explorar nivel por nivel
         while cola:
-            fila, col = cola.popleft()
+            fila, col = cola.popleft()  # Obtener siguiente posición de la cola
             
+            # Si llegamos al destino, existe un camino
             if (fila, col) == (fila_fin, col_fin):
                 return True
             
+            # Explorar vecinos (4 direcciones)
             for df, dc in direcciones:
                 nueva_fila = fila + df
                 nueva_col = col + dc
                 
+                # Verificar que la nueva posición sea válida, no visitada y transitable
                 if (0 <= nueva_fila < self.alto and 
                     0 <= nueva_col < self.ancho and 
                     not visitado[nueva_fila][nueva_col] and
                     self.es_transitable_por_jugador(nueva_fila, nueva_col)):
                     
+                    # Marcar como visitado y agregar a la cola para explorar después
                     visitado[nueva_fila][nueva_col] = True
                     cola.append((nueva_fila, nueva_col))
         
+        # No se encontró camino
         return False
     
     def __repr__(self) -> str:

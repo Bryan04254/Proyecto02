@@ -16,41 +16,67 @@ class Dificultad(Enum):
 class ConfiguracionDificultad:
     """
     Configuración de parámetros para cada nivel de dificultad.
+    
+    Esta clase centraliza todos los parámetros de balance del juego
+    para cada nivel de dificultad. Permite ajustar fácilmente:
+    - Cantidad y velocidad de enemigos
+    - Energía inicial del jugador
+    - Sistema de puntuación
+    - Tiempos de respawn
     """
     
-    # Configuraciones por dificultad
+    # ============================================
+    # CONFIGURACIONES POR DIFICULTAD
+    # ============================================
+    # Cada dificultad tiene un diccionario con todos los parámetros
+    # que afectan el balance del juego
     CONFIGURACIONES: Dict[Dificultad, Dict[str, Any]] = {
         Dificultad.FACIL: {
-            "cantidad_enemigos": 4,  # Aumentado de 2 a 4
-            "velocidad_enemigos": 0.5,  # movimientos por segundo
-            "energia_inicial_jugador": 200,  # Aumentado de 150 a 200
-            "puntos_base_escapa": 100,
-            "puntos_base_cazador": 50,
-            "puntos_por_enemigo_eliminado": 15,
-            "puntos_perdidos_por_escape": 5,
-            "puntos_ganados_por_captura": 10,
+            # Enemigos: pocos y lentos
+            "cantidad_enemigos": 4,  # Aumentado de 2 a 4 para mejor balance
+            "velocidad_enemigos": 0.5,  # movimientos por segundo (lento)
+            # Jugador: mucha energía inicial
+            "energia_inicial_jugador": 200,  # Aumentado de 150 a 200 para mejor balance
+            # Sistema de puntuación (modo escapa)
+            "puntos_base_escapa": 100,  # Puntos base al completar el modo
+            # Sistema de puntuación (modo cazador)
+            "puntos_base_cazador": 50,  # Puntos iniciales en modo cazador
+            "puntos_por_enemigo_eliminado": 15,  # Bono por eliminar enemigo con trampa
+            "puntos_perdidos_por_escape": 5,  # Puntos perdidos si enemigo escapa
+            "puntos_ganados_por_captura": 10,  # Puntos ganados al capturar enemigo
+            # Sistema de respawn
             "tiempo_respawn_enemigo": 10.0,  # segundos (según especificación)
         },
         Dificultad.NORMAL: {
-            "cantidad_enemigos": 8,  # Aumentado de 4 a 8
-            "velocidad_enemigos": 1.0,
-            "energia_inicial_jugador": 150,  # Aumentado de 100 a 150
-            "puntos_base_escapa": 200,
-            "puntos_base_cazador": 100,
-            "puntos_por_enemigo_eliminado": 20,
-            "puntos_perdidos_por_escape": 10,
-            "puntos_ganados_por_captura": 20,
+            # Enemigos: cantidad y velocidad moderadas
+            "cantidad_enemigos": 8,  # Aumentado de 4 a 8 para mejor balance
+            "velocidad_enemigos": 1.0,  # movimientos por segundo (normal)
+            # Jugador: energía moderada
+            "energia_inicial_jugador": 150,  # Aumentado de 100 a 150 para mejor balance
+            # Sistema de puntuación (modo escapa)
+            "puntos_base_escapa": 200,  # Puntos base al completar el modo
+            # Sistema de puntuación (modo cazador)
+            "puntos_base_cazador": 100,  # Puntos iniciales en modo cazador
+            "puntos_por_enemigo_eliminado": 20,  # Bono por eliminar enemigo con trampa
+            "puntos_perdidos_por_escape": 10,  # Puntos perdidos si enemigo escapa
+            "puntos_ganados_por_captura": 20,  # Puntos ganados al capturar enemigo
+            # Sistema de respawn
             "tiempo_respawn_enemigo": 10.0,  # segundos (según especificación)
         },
         Dificultad.DIFICIL: {
-            "cantidad_enemigos": 12,  # Aumentado de 6 a 12
-            "velocidad_enemigos": 1.5,
-            "energia_inicial_jugador": 120,  # Aumentado de 75 a 120
-            "puntos_base_escapa": 300,
-            "puntos_base_cazador": 150,
-            "puntos_por_enemigo_eliminado": 30,
-            "puntos_perdidos_por_escape": 20,
-            "puntos_ganados_por_captura": 40,
+            # Enemigos: muchos y rápidos
+            "cantidad_enemigos": 12,  # Aumentado de 6 a 12 para mejor balance
+            "velocidad_enemigos": 1.5,  # movimientos por segundo (rápido)
+            # Jugador: poca energía inicial
+            "energia_inicial_jugador": 120,  # Aumentado de 75 a 120 para mejor balance
+            # Sistema de puntuación (modo escapa)
+            "puntos_base_escapa": 300,  # Puntos base al completar el modo (más recompensa)
+            # Sistema de puntuación (modo cazador)
+            "puntos_base_cazador": 150,  # Puntos iniciales en modo cazador
+            "puntos_por_enemigo_eliminado": 30,  # Bono por eliminar enemigo con trampa (más recompensa)
+            "puntos_perdidos_por_escape": 20,  # Puntos perdidos si enemigo escapa (más penalización)
+            "puntos_ganados_por_captura": 40,  # Puntos ganados al capturar enemigo (más recompensa)
+            # Sistema de respawn
             "tiempo_respawn_enemigo": 10.0,  # segundos (según especificación)
         }
     }

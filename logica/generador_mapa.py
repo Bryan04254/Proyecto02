@@ -47,56 +47,81 @@ class GeneradorMapa:
         Returns:
             Un objeto Mapa con caminos válidos desde inicio hasta todas las salidas.
         """
-        # Definimos posición de inicio
+        # ============================================
+        # CONFIGURACIÓN INICIAL
+        # ============================================
+        # Posición de inicio siempre en esquina superior izquierda
         posicion_inicio = (1, 1)
         
         # Si no se especifica cantidad, elegir aleatoriamente 1 o 2 salidas
+        # Esto permite variabilidad en los mapas generados
         if cantidad_salidas is None:
             cantidad_salidas = random.choice([1, 2])
         
         # Generar posiciones de salida distribuidas en diferentes áreas del mapa
+        # Las salidas se distribuyen en esquinas y bordes para crear múltiples rutas
         posiciones_salida = self._generar_posiciones_salida(cantidad_salidas, posicion_inicio)
         
+        # ============================================
+        # GENERACIÓN DE MAPA CON VALIDACIÓN
+        # ============================================
         # Intentamos generar un mapa válido (máximo 10 intentos)
+        # Un mapa válido debe tener caminos transitables desde inicio hasta todas las salidas
         for intento in range(10):
-            # Primero generamos un laberinto base usando DFS
+            # Paso 1: Generar laberinto base usando DFS (Depth-First Search)
+            # Esto crea una estructura de laberinto tradicional con caminos conectados
             casillas_laberinto = self._generar_laberinto_dfs()
             
-            # Aseguramos que inicio y todas las salidas sean transitables
+            # Paso 2: Asegurar que inicio y todas las salidas sean transitables
+            # Esto garantiza que las posiciones críticas no sean muros
             casillas_laberinto[posicion_inicio[0]][posicion_inicio[1]] = Camino()
             for salida in posiciones_salida:
                 casillas_laberinto[salida[0]][salida[1]] = Camino()
             
-            # Verificamos que existe camino a todas las salidas antes de agregar variación
+            # Paso 3: Verificar que existe camino válido a todas las salidas
+            # antes de agregar variación (lianas y túneles)
             caminos_validos = all(
                 self._existe_camino_valido(casillas_laberinto, posicion_inicio, salida)
                 for salida in posiciones_salida
             )
             if not caminos_validos:
+                # Si no hay caminos válidos, intentar de nuevo
                 continue
             
-            # Luego agregamos variación con lianas y túneles (pero preservamos los caminos)
+            # Paso 4: Agregar variación con lianas y túneles
+            # Esto preserva los caminos pero añade complejidad y mecánicas especiales
             casillas = self._agregar_variacion_terreno_segura_multiple(
                 casillas_laberinto, posicion_inicio, posiciones_salida, modo=modo
             )
             
-            # Verificamos que los caminos siguen siendo válidos después de agregar variación
+            # Paso 5: Verificar que los caminos siguen siendo válidos después de agregar variación
+            # En modo cazador, las reglas de transición son diferentes (jugador/enemigos)
             if modo == "cazador":
                 # En modo cazador, usar verificación con reglas del modo cazador
+                # (jugador puede pasar por Liana, enemigos por Tunel)
                 caminos_validos = all(
                     self._existe_camino_valido_cazador(casillas, posicion_inicio, salida)
                     for salida in posiciones_salida
                 )
             else:
+                # En modo escapa, usar verificación estándar
                 caminos_validos = all(
                     self._existe_camino_valido(casillas, posicion_inicio, salida)
                     for salida in posiciones_salida
                 )
+            
+            # Si todos los caminos son válidos, retornar el mapa generado
             if caminos_validos:
                 return Mapa(self.ancho, self.alto, casillas, posicion_inicio, posiciones_salida)
         
-        # Si después de 10 intentos no hay caminos, devolvemos un mapa simple con solo caminos
+        # ============================================
+        # FALLBACK: MAPA SIMPLE
+        # ============================================
+        # Si después de 10 intentos no se generó un mapa válido,
+        # devolver un mapa simple con solo caminos (patrón de tablero de ajedrez)
+        # Esto garantiza que siempre haya un mapa jugable
         casillas = [[Camino() if (i + j) % 2 == 0 else Muro() for j in range(self.ancho)] for i in range(self.alto)]
+        # Asegurar que inicio y salidas sean transitables
         casillas[posicion_inicio[0]][posicion_inicio[1]] = Camino()
         for salida in posiciones_salida:
             casillas[salida[0]][salida[1]] = Camino()
@@ -171,33 +196,40 @@ class GeneradorMapa:
                       fila: int, col: int):
         """
         DFS recursivo tradicional para generar el laberinto.
-        Mantiene la estructura clásica de laberinto.
+        
+        Utiliza el algoritmo de Depth-First Search para crear un laberinto
+        perfecto (un solo camino entre cualquier par de celdas). El algoritmo
+        funciona moviéndose en pasos de 2 celdas y abriendo el muro intermedio.
         
         Args:
-            casillas: Matriz de casillas a modificar.
-            visitado: Matriz de visitados.
-            fila: Fila actual.
-            col: Columna actual.
+            casillas: Matriz de casillas a modificar (se convierte Muro -> Camino).
+            visitado: Matriz de visitados para evitar ciclos.
+            fila: Fila actual en el proceso de generación.
+            col: Columna actual en el proceso de generación.
         """
-        # Marcar como visitado y convertir en camino
+        # Marcar la celda actual como visitada y convertir en camino
         visitado[fila][col] = True
         casillas[fila][col] = Camino()
         
-        # Direcciones: arriba, abajo, izquierda, derecha
+        # Direcciones posibles: arriba, abajo, izquierda, derecha
+        # Se aleatorizan para crear laberintos diferentes cada vez
         direcciones = [(-1, 0), (1, 0), (0, -1), (0, 1)]
         random.shuffle(direcciones)
         
+        # Explorar cada dirección
         for df, dc in direcciones:
+            # Moverse 2 celdas en la dirección (saltando el muro intermedio)
             nueva_fila = fila + df * 2
             nueva_col = col + dc * 2
             
-            # Verificar límites
+            # Verificar que la nueva posición esté dentro de los límites y no visitada
             if (0 < nueva_fila < self.alto - 1 and 
                 0 < nueva_col < self.ancho - 1 and 
                 not visitado[nueva_fila][nueva_col]):
                 
-                # Abrir el muro entre la celda actual y la nueva
+                # Abrir el muro entre la celda actual y la nueva (celda intermedia)
                 casillas[fila + df][col + dc] = Camino()
+                # Continuar recursivamente desde la nueva posición
                 self._dfs_laberinto(casillas, visitado, nueva_fila, nueva_col)
     
     def _agregar_caminos_alternativos(self, casillas: List[List[Tile]], 

@@ -32,11 +32,14 @@ class Jugador:
             columna: Columna inicial del jugador.
             energia_maxima: Energía máxima del jugador.
         """
+        # Posición del jugador en el mapa
         self.fila = fila
         self.columna = columna
+        # Sistema de energía
         self.energia_maxima = energia_maxima
-        self.energia_actual = energia_maxima
-        self.movimientos_desde_ultima_perdida = 0  # Contador para perder 1% cada 3 movimientos
+        self.energia_actual = energia_maxima  # Energía actual (puede ser float para precisión)
+        # Contador para pérdida periódica de energía (0.5% cada 5 movimientos)
+        self.movimientos_desde_ultima_perdida = 0
     
     def obtener_posicion(self) -> Tuple[int, int]:
         """
@@ -112,32 +115,42 @@ class Jugador:
         Returns:
             True si el movimiento fue exitoso, False en caso contrario.
         """
-        # Validar posición
+        # Validar que la nueva posición esté dentro de los límites del mapa
         if not mapa.es_posicion_valida(nueva_fila, nueva_col):
             return False
         
         # Verificar si la casilla permite el paso del jugador
-        # Por defecto usa modo "escapa", pero esto se puede sobrescribir en modo_cazador
+        # Nota: Por defecto usa modo "escapa", pero esto se puede sobrescribir
+        # en modo_cazador donde las reglas de transición son diferentes
         if not mapa.es_transitable_por_jugador(nueva_fila, nueva_col, modo="escapa"):
             return False
         
-        # Consumir energía (shift no aumenta velocidad, solo consume más energía)
+        # Consumir energía según el tipo de movimiento
+        # IMPORTANTE: Shift no aumenta velocidad, solo consume más energía
         if corriendo:
+            # Verificar que tenga suficiente energía para correr
             if not self.puede_correr():
                 return False
+            # Consumir energía de correr (1.5 puntos)
             self.consumir_energia(self.ENERGIA_CORRER)
         else:
+            # Consumir energía de caminar (0.5 puntos)
             self.consumir_energia(self.ENERGIA_CAMINAR)
         
-        # Realizar el movimiento (la velocidad es la misma, corriendo solo consume más energía)
+        # Realizar el movimiento (actualizar posición)
+        # Nota: La velocidad es la misma, corriendo solo consume más energía
         self.fila = nueva_fila
         self.columna = nueva_col
         
+        # Sistema de pérdida periódica de energía
         # Perder 0.5% de energía cada 5 movimientos (reducido para mejor balance)
         self.movimientos_desde_ultima_perdida += 1
         if self.movimientos_desde_ultima_perdida >= 5:
-            porcentaje_perdida = self.energia_maxima * 0.005  # 0.5% de la energía máxima
+            # Calcular 0.5% de la energía máxima
+            porcentaje_perdida = self.energia_maxima * 0.005
+            # Aplicar pérdida (asegurar que no sea negativa)
             self.energia_actual = max(0, self.energia_actual - porcentaje_perdida)
+            # Resetear contador
             self.movimientos_desde_ultima_perdida = 0
         
         return True
@@ -156,17 +169,21 @@ class Jugador:
         Consume energía del jugador.
         
         Args:
-            cantidad: Cantidad de energía a consumir.
+            cantidad: Cantidad de energía a consumir (puede ser float).
             
         Returns:
-            True si se consumió la energía, False si no había suficiente.
+            True si se consumió la energía exitosamente, False si no había suficiente.
         """
+        # Validar cantidad positiva
         if cantidad <= 0:
             return False
         
+        # Verificar que haya suficiente energía
         if self.energia_actual >= cantidad:
+            # Consumir energía (asegurar que no sea negativa)
             self.energia_actual = max(0, self.energia_actual - cantidad)
             return True
+        # No hay suficiente energía
         return False
     
     def recuperar_energia(self, cantidad: float) -> None:
@@ -174,22 +191,32 @@ class Jugador:
         Recupera energía del jugador.
         
         Args:
-            cantidad: Cantidad de energía a recuperar.
+            cantidad: Cantidad de energía a recuperar (puede ser float).
+            
+        Note:
+            La energía no puede exceder el máximo. Si se intenta recuperar
+            más de lo permitido, se limita al máximo.
         """
         if cantidad > 0:
+            # Recuperar energía sin exceder el máximo
             self.energia_actual = min(self.energia_maxima, self.energia_actual + cantidad)
     
     def actualizar_energia(self, delta_tiempo: float, tasa_recuperacion: float = 1.0) -> None:
         """
         Actualiza la energía del jugador con el tiempo (recuperación gradual).
         
+        Este método se llama cada frame para recuperar energía automáticamente.
+        La recuperación es gradual y continua mientras el jugador no esté al máximo.
+        
         Args:
-            delta_tiempo: Tiempo transcurrido (en segundos o unidades de tiempo).
-            tasa_recuperacion: Energía recuperada por unidad de tiempo (por defecto 1.0 por segundo).
+            delta_tiempo: Tiempo transcurrido desde el último frame (en segundos).
+            tasa_recuperacion: Energía recuperada por segundo (por defecto 1.0 punto/segundo).
         """
-        # Solo recuperar si no está corriendo y tiene menos del 100%
+        # Solo recuperar si no está al máximo de energía
         if self.energia_actual < self.energia_maxima:
+            # Calcular energía recuperada según el tiempo transcurrido
             energia_recuperada = delta_tiempo * tasa_recuperacion
+            # Aplicar recuperación (el método recuperar_energia limita al máximo)
             self.recuperar_energia(energia_recuperada)
     
     def obtener_porcentaje_energia(self) -> float:

@@ -28,8 +28,10 @@ class Trampa:
             fila: Fila donde se coloca la trampa.
             columna: Columna donde se coloca la trampa.
         """
+        # Posición de la trampa en el mapa
         self.fila = fila
         self.columna = columna
+        # Estado inicial: todas las trampas empiezan activas
         self.estado = EstadoTrampa.ACTIVA
     
     def obtener_posicion(self) -> Tuple[int, int]:
@@ -51,7 +53,12 @@ class Trampa:
         return self.estado == EstadoTrampa.ACTIVA
     
     def desactivar(self) -> None:
-        """Desactiva la trampa."""
+        """
+        Desactiva la trampa.
+        
+        Se llama cuando un enemigo pasa sobre la trampa y es eliminado.
+        La trampa desaparece del mapa después de ser desactivada.
+        """
         self.estado = EstadoTrampa.INACTIVA
     
     def __repr__(self) -> str:
@@ -80,9 +87,12 @@ class GestorTrampas:
         Args:
             max_trampas_activas: Límite máximo de trampas activas. Si es None, usa el valor por defecto.
         """
+        # Lista de todas las trampas (activas e inactivas)
         self.trampas: List[Trampa] = []
+        # Límite máximo de trampas activas simultáneamente (por defecto 3)
         self.max_trampas_activas = max_trampas_activas if max_trampas_activas is not None else self.MAX_TRAMPAS_ACTIVAS_DEFAULT
-        self.tiempo_ultima_colocacion = -self.COOLDOWN_COLOCACION  # Permite colocar inmediatamente
+        # Tiempo de la última colocación (inicializado negativo para permitir primera colocación inmediata)
+        self.tiempo_ultima_colocacion = -self.COOLDOWN_COLOCACION
     
     def puede_colocar_trampa(self, tiempo_actual: float) -> bool:
         """
@@ -157,26 +167,30 @@ class GestorTrampas:
         trampas_activas = [t for t in self.trampas if t.esta_activa()]
         
         # Verificar colisiones para cada trampa activa
+        # Iterar sobre todas las trampas activas en el mapa
         for trampa in trampas_activas:
             trampa_pos = trampa.obtener_posicion()
             trampa_fila, trampa_col = trampa_pos
             
-            # Verificar cada enemigo
+            # Verificar cada enemigo para detectar colisiones
             for enemigo in enemigos:
+                # Saltar enemigos que ya están muertos
                 if not enemigo.esta_vivo():
                     continue
                 
+                # Obtener posición del enemigo
                 enemigo_pos = enemigo.obtener_posicion()
                 enemigo_fila, enemigo_col = enemigo_pos
                 
-                # Verificar si el enemigo está en la misma posición que la trampa
+                # Verificar colisión: si el enemigo está en la misma posición que la trampa
                 if enemigo_fila == trampa_fila and enemigo_col == trampa_col:
-                    # Matar al enemigo inmediatamente
+                    # Eliminar al enemigo inmediatamente
                     enemigo.matar()
-                    # Marcar trampa para desactivar (desaparece del mapa)
+                    # Marcar trampa para desactivar (desaparece del mapa después de usar)
                     trampas_a_desactivar.append(trampa)
                     enemigos_eliminados += 1
-                    break  # Una trampa solo puede eliminar un enemigo
+                    # Una trampa solo puede eliminar un enemigo por frame
+                    break
         
         # Desactivar las trampas que eliminaron enemigos (desaparecen del mapa)
         for trampa in trampas_a_desactivar:
@@ -202,11 +216,16 @@ class GestorTrampas:
         return max(0.0, restante)
     
     def limpiar_trampas_inactivas(self) -> None:
-        """Elimina las trampas inactivas de la lista."""
+        """
+        Elimina las trampas inactivas de la lista.
+        
+        Este método limpia la lista de trampas, removiendo aquellas que
+        fueron desactivadas (por ejemplo, después de eliminar un enemigo).
+        """
         self.trampas = [t for t in self.trampas if t.esta_activa()]
     
     def __repr__(self) -> str:
         """Representación del gestor."""
         trampas_activas = len(self.obtener_trampas_activas())
-        return f"GestorTrampas(trampas_activas={trampas_activas}/{self.MAX_TRAMPAS_ACTIVAS})"
+        return f"GestorTrampas(trampas_activas={trampas_activas}/{self.max_trampas_activas})"
 

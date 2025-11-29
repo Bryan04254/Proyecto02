@@ -32,25 +32,37 @@ class GameModeEscapa:
             ancho_mapa: Ancho del mapa si se genera uno nuevo.
             alto_mapa: Alto del mapa si se genera uno nuevo.
         """
+        # ============================================
+        # CONFIGURACIÓN BÁSICA
+        # ============================================
         self.nombre_jugador = nombre_jugador
         self.dificultad = dificultad
+        # Obtener configuración según la dificultad (energía, velocidad enemigos, etc.)
         self.config = ConfiguracionDificultad.obtener_configuracion(dificultad)
         
+        # ============================================
+        # GENERACIÓN O USO DE MAPA
+        # ============================================
         # Generar o usar mapa existente
         if mapa is None:
+            # Crear nuevo mapa con las dimensiones especificadas
             generador = GeneradorMapa(ancho=ancho_mapa, alto=alto_mapa)
             self.mapa = generador.generar_mapa()
         else:
+            # Usar mapa proporcionado
             self.mapa = mapa
         
-        # Crear jugador siempre en la esquina superior izquierda (1, 1)
+        # ============================================
+        # POSICIÓN INICIAL DEL JUGADOR
+        # ============================================
+        # El jugador siempre empieza en la esquina superior izquierda (1, 1)
         pos_inicio = (1, 1)
         # Asegurar que la posición de inicio del mapa sea (1, 1)
         if self.mapa.obtener_posicion_inicio_jugador() != pos_inicio:
             # Si el mapa no tiene el inicio en (1, 1), forzarlo
-            # Asegurar que (1, 1) sea transitable
+            # Asegurar que (1, 1) sea transitable para el jugador
             if not self.mapa.es_transitable_por_jugador(1, 1):
-                # Si no es transitable, buscar una posición cercana
+                # Si no es transitable, buscar una posición cercana válida
                 for df in range(0, 3):
                     for dc in range(0, 3):
                         fila = 1 + df
@@ -61,28 +73,42 @@ class GameModeEscapa:
                     if pos_inicio != (1, 1):
                         break
         
+        # Crear jugador con energía inicial según dificultad
         energia_inicial = self.config["energia_inicial_jugador"]
         self.jugador = Jugador(pos_inicio[0], pos_inicio[1], energia_maxima=energia_inicial)
         
-        # Gestor de trampas con límite de 3 trampas activas (según especificación)
+        # ============================================
+        # SISTEMA DE TRAMPAS
+        # ============================================
+        # Gestor de trampas con límite de 3 trampas activas simultáneamente
         # Sistema de regeneración: empieza con 3 trampas disponibles
+        # Las trampas se regeneran cada 5 segundos (de 0 a 1, luego 1 a 2, etc.)
         self.gestor_trampas = GestorTrampas(max_trampas_activas=3)
         self.trampas_disponibles = 3  # Trampas que el jugador puede usar (se regeneran)
-        self.tiempo_ultima_regeneracion = 0.0
+        self.tiempo_ultima_regeneracion = 0.0  # Tiempo de la última regeneración
         
-        # Crear enemigos: 3 cazadores por cada trampa disponible (3 trampas = 9 cazadores)
+        # ============================================
+        # CREACIÓN DE ENEMIGOS
+        # ============================================
+        # Crear enemigos: 3 cazadores por cada trampa disponible
+        # Ejemplo: 3 trampas = 9 cazadores
         self.enemigos: List[Enemigo] = []
         self._crear_enemigos()
         
-        # Estado del juego
-        self.tiempo_juego = 0.0
-        self.puntos = 0
-        self.juego_terminado = False
-        self.victoria = False
-        self.movimientos = 0
-        self.enemigos_eliminados = 0
+        # ============================================
+        # ESTADO DEL JUEGO
+        # ============================================
+        self.tiempo_juego = 0.0  # Tiempo transcurrido en segundos
+        self.puntos = 0  # Puntos acumulados (se calculan al final)
+        self.juego_terminado = False  # Flag de fin de juego
+        self.victoria = False  # True si el jugador ganó, False si perdió
+        self.movimientos = 0  # Contador de movimientos del jugador
+        self.enemigos_eliminados = 0  # Contador de enemigos eliminados con trampas
         
-        # ScoreBoard
+        # ============================================
+        # SISTEMA DE PUNTAJES
+        # ============================================
+        # ScoreBoard para registrar y mostrar puntajes
         self.scoreboard = ScoreBoard()
     
     def _obtener_esquinas_enemigos(self) -> List[Tuple[int, int]]:
@@ -573,58 +599,87 @@ class GameModeEscapa:
         self.victoria = victoria
         
         if victoria:
-            # Calcular puntaje final
+            # ============================================
+            # CÁLCULO DE PUNTAJE FINAL (VICTORIA)
+            # ============================================
+            # El sistema de puntuación recompensa:
+            # 1. Velocidad (menos tiempo = más puntos)
+            # 2. Eficiencia (menos movimientos = más puntos)
+            # 3. Estrategia (enemigos eliminados con trampas)
+            # 4. Conservación de energía
+            
+            # Puntos base según dificultad
             puntos_base = self.config["puntos_base_escapa"]
             
-            # Bono por tiempo mejorado (menos tiempo = más puntos)
-            # Máximo 150 puntos extra, escala mejor
+            # ============================================
+            # BONO POR TIEMPO
+            # ============================================
+            # Recompensa por terminar rápido
+            # Máximo 150 puntos extra, escala mejor según tiempo
             if self.tiempo_juego <= 30:
-                bono_tiempo = 150  # Terminar en menos de 30 segundos
+                bono_tiempo = 150  # Terminar en menos de 30 segundos (máximo bono)
             elif self.tiempo_juego <= 60:
-                bono_tiempo = 120 - int(self.tiempo_juego)  # Entre 30-60 segundos
+                bono_tiempo = 120 - int(self.tiempo_juego)  # Entre 30-60 segundos (escala lineal)
             elif self.tiempo_juego <= 90:
-                bono_tiempo = 90 - int(self.tiempo_juego * 0.5)  # Entre 60-90 segundos
+                bono_tiempo = 90 - int(self.tiempo_juego * 0.5)  # Entre 60-90 segundos (escala reducida)
             else:
-                bono_tiempo = max(0, 60 - int(self.tiempo_juego * 0.33))  # Más de 90 segundos
+                bono_tiempo = max(0, 60 - int(self.tiempo_juego * 0.33))  # Más de 90 segundos (bono mínimo)
             
-            # Bono por enemigos eliminados
+            # ============================================
+            # BONO POR ENEMIGOS ELIMINADOS
+            # ============================================
+            # Recompensa por usar trampas estratégicamente
             bono_enemigos = self.enemigos_eliminados * self.config["puntos_por_enemigo_eliminado"]
             
-            # Bono por energía restante (0.5 puntos por punto de energía)
+            # ============================================
+            # BONO POR ENERGÍA RESTANTE
+            # ============================================
+            # Recompensa por conservar energía (0.5 puntos por punto de energía)
             energia_restante = self.jugador.obtener_energia_actual()
             bono_energia = int(energia_restante * 0.5)
             
-            # Bono por eficiencia (menos movimientos = más puntos)
-            # Si terminas rápido con pocos movimientos, bono adicional
+            # ============================================
+            # BONO POR EFICIENCIA DE MOVIMIENTOS
+            # ============================================
+            # Recompensa por terminar rápido con pocos movimientos
+            # Calcula tiempo promedio por movimiento
             if self.tiempo_juego > 0 and self.movimientos > 0:
                 eficiencia = self.tiempo_juego / self.movimientos  # Tiempo por movimiento
                 if eficiencia < 0.5:  # Muy eficiente (menos de 0.5 segundos por movimiento)
                     bono_eficiencia = 30
-                elif eficiencia < 1.0:
+                elif eficiencia < 1.0:  # Eficiente
                     bono_eficiencia = 20
-                elif eficiencia < 1.5:
+                elif eficiencia < 1.5:  # Moderadamente eficiente
                     bono_eficiencia = 10
                 else:
-                    bono_eficiencia = 0
+                    bono_eficiencia = 0  # No eficiente
             else:
                 bono_eficiencia = 0
             
-            # Bono por trampas usadas eficientemente
+            # ============================================
+            # BONO POR TRAMPAS USADAS EFICIENTEMENTE
+            # ============================================
+            # Recompensa por usar trampas de manera estratégica
+            # (eliminar más enemigos que trampas usadas)
             trampas_activas = len(self.gestor_trampas.obtener_trampas_activas())
             trampas_usadas = 3 - self.trampas_disponibles  # Trampas que se usaron
             if trampas_usadas > 0 and self.enemigos_eliminados > 0:
                 # Eficiencia: enemigos eliminados / trampas usadas
                 eficiencia_trampas = self.enemigos_eliminados / trampas_usadas
-                if eficiencia_trampas >= 1.0:  # Al menos 1 enemigo por trampa
+                if eficiencia_trampas >= 1.0:  # Al menos 1 enemigo por trampa (eficiente)
                     bono_trampas = int(eficiencia_trampas * 5)  # Hasta 15 puntos extra
                 else:
-                    bono_trampas = 0
+                    bono_trampas = 0  # No eficiente
             else:
                 bono_trampas = 0
             
+            # ============================================
+            # CÁLCULO FINAL DE PUNTOS
+            # ============================================
+            # Sumar todos los bonos
             self.puntos = puntos_base + bono_tiempo + bono_enemigos + bono_energia + bono_eficiencia + bono_trampas
             
-            # Puntos mínimos garantizados
+            # Puntos mínimos garantizados si ganas (50 puntos mínimo)
             self.puntos = max(50, int(self.puntos))
             
             # Registrar puntaje
