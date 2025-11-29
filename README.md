@@ -242,7 +242,7 @@ class Config:
 
 ## Autores
 
-Iniciado por Bryan Charpentier
+Iniciado por Bryan Charpentier Isaac Solis Alvarado
 
 ---
 
