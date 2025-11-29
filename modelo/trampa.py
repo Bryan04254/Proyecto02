@@ -64,23 +64,30 @@ class GestorTrampas:
     Gestor que maneja las trampas del jugador.
     
     Controla:
-    - Límite máximo de trampas activas (3)
+    - Límite máximo de trampas activas (configurable, por defecto 3)
     - Cooldown entre colocaciones (5 segundos)
     - Detección de colisiones con enemigos
     """
     
-    MAX_TRAMPAS_ACTIVAS = 3
+    MAX_TRAMPAS_ACTIVAS_DEFAULT = 3
     COOLDOWN_COLOCACION = 5.0  # segundos
     PUNTOS_POR_ENEMIGO_ELIMINADO = 10
     
-    def __init__(self):
-        """Inicializa el gestor de trampas."""
+    def __init__(self, max_trampas_activas: int = None):
+        """
+        Inicializa el gestor de trampas.
+        
+        Args:
+            max_trampas_activas: Límite máximo de trampas activas. Si es None, usa el valor por defecto.
+        """
         self.trampas: List[Trampa] = []
+        self.max_trampas_activas = max_trampas_activas if max_trampas_activas is not None else self.MAX_TRAMPAS_ACTIVAS_DEFAULT
         self.tiempo_ultima_colocacion = -self.COOLDOWN_COLOCACION  # Permite colocar inmediatamente
     
     def puede_colocar_trampa(self, tiempo_actual: float) -> bool:
         """
         Verifica si se puede colocar una nueva trampa.
+        El cooldown se maneja en el modo de juego (sistema de regeneración).
         
         Args:
             tiempo_actual: Tiempo actual del juego en segundos.
@@ -88,14 +95,9 @@ class GestorTrampas:
         Returns:
             True si se puede colocar, False en caso contrario.
         """
-        # Verificar límite de trampas activas
+        # Verificar límite de trampas activas en el mapa
         trampas_activas = sum(1 for t in self.trampas if t.esta_activa())
-        if trampas_activas >= self.MAX_TRAMPAS_ACTIVAS:
-            return False
-        
-        # Verificar cooldown
-        tiempo_desde_ultima = tiempo_actual - self.tiempo_ultima_colocacion
-        if tiempo_desde_ultima < self.COOLDOWN_COLOCACION:
+        if trampas_activas >= self.max_trampas_activas:
             return False
         
         return True
@@ -112,7 +114,9 @@ class GestorTrampas:
         Returns:
             True si se colocó exitosamente, False en caso contrario.
         """
-        if not self.puede_colocar_trampa(tiempo_actual):
+        # Verificar límite de trampas activas en el mapa
+        trampas_activas = sum(1 for t in self.trampas if t.esta_activa())
+        if trampas_activas >= self.max_trampas_activas:
             return False
         
         # Verificar que no haya ya una trampa en esa posición
@@ -123,7 +127,6 @@ class GestorTrampas:
         # Crear y agregar la nueva trampa
         nueva_trampa = Trampa(fila, columna)
         self.trampas.append(nueva_trampa)
-        self.tiempo_ultima_colocacion = tiempo_actual
         
         return True
     
@@ -139,7 +142,7 @@ class GestorTrampas:
     def verificar_colisiones_enemigos(self, enemigos: List) -> int:
         """
         Verifica si algún enemigo está en la posición de una trampa activa.
-        Si es así, elimina al enemigo y desactiva la trampa.
+        Si es así, elimina al enemigo inmediatamente y la trampa desaparece del mapa.
         
         Args:
             enemigos: Lista de enemigos a verificar.
@@ -148,21 +151,38 @@ class GestorTrampas:
             Número de enemigos eliminados.
         """
         enemigos_eliminados = 0
+        trampas_a_desactivar = []
         
-        for trampa in self.trampas:
-            if not trampa.esta_activa():
-                continue
-            
+        # Obtener todas las trampas activas primero
+        trampas_activas = [t for t in self.trampas if t.esta_activa()]
+        
+        # Verificar colisiones para cada trampa activa
+        for trampa in trampas_activas:
             trampa_pos = trampa.obtener_posicion()
+            trampa_fila, trampa_col = trampa_pos
             
+            # Verificar cada enemigo
             for enemigo in enemigos:
-                if enemigo.esta_vivo() and enemigo.obtener_posicion() == trampa_pos:
+                if not enemigo.esta_vivo():
+                    continue
+                
+                enemigo_pos = enemigo.obtener_posicion()
+                enemigo_fila, enemigo_col = enemigo_pos
+                
+                # Verificar si el enemigo está en la misma posición que la trampa
+                if enemigo_fila == trampa_fila and enemigo_col == trampa_col:
+                    # Matar al enemigo inmediatamente
                     enemigo.matar()
-                    trampa.desactivar()
+                    # Marcar trampa para desactivar (desaparece del mapa)
+                    trampas_a_desactivar.append(trampa)
                     enemigos_eliminados += 1
                     break  # Una trampa solo puede eliminar un enemigo
         
-        # Limpiar trampas inactivas (opcional, para mantener la lista limpia)
+        # Desactivar las trampas que eliminaron enemigos (desaparecen del mapa)
+        for trampa in trampas_a_desactivar:
+            trampa.desactivar()
+        
+        # Limpiar trampas inactivas de la lista (las trampas desaparecen)
         self.trampas = [t for t in self.trampas if t.esta_activa()]
         
         return enemigos_eliminados

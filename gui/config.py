@@ -67,15 +67,16 @@ class Config:
     """Configuración general del juego."""
     
     # Ventana
-    ANCHO_VENTANA = 1280
-    ALTO_VENTANA = 720
+    PANTALLA_COMPLETA = True  # Activar pantalla completa
+    ANCHO_VENTANA = 1280  # Usado si no está en pantalla completa
+    ALTO_VENTANA = 720   # Usado si no está en pantalla completa
     FPS = 60
     TITULO = "Escapa del Laberinto"
     
     # Mapa
     TAMANO_CELDA = 32
-    MAPA_ANCHO = 20
-    MAPA_ALTO = 15
+    MAPA_ANCHO = 40  # Aumentado para mapas más grandes
+    MAPA_ALTO = 30   # Aumentado para mapas más grandes
     
     # Offset del mapa en la pantalla (para centrar)
     MAPA_OFFSET_X = 50

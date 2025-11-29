@@ -109,21 +109,29 @@ class RenderizadorMapa:
         
         pygame.draw.rect(superficie, color, rect, width=3, border_radius=4)
     
-    def _dibujar_jugador(self, superficie: pygame.Surface, x: float, y: float):
+    def _dibujar_jugador(self, superficie: pygame.Surface, x: float, y: float, modo: str = "escapa"):
         """Dibuja al jugador con efectos."""
         centro_x = int(x + self.tamano_celda // 2)
         centro_y = int(y + self.tamano_celda // 2)
         radio = self.tamano_celda // 3
         
+        # Color del jugador según el modo
+        if modo == "cazador":
+            color_jugador = Colores.ROJO_NEON
+            color_glow = (*Colores.ROJO_NEON, 100)
+        else:
+            color_jugador = Colores.JUGADOR
+            color_glow = (*Colores.JUGADOR_GLOW, 100)
+        
         # Glow exterior
         glow_radio = radio + 4 + int(2 * math.sin(self.tiempo * 5))
         glow_surface = pygame.Surface((glow_radio * 4, glow_radio * 4), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surface, (*Colores.JUGADOR_GLOW, 100), 
+        pygame.draw.circle(glow_surface, color_glow, 
                          (glow_radio * 2, glow_radio * 2), glow_radio)
         superficie.blit(glow_surface, (centro_x - glow_radio * 2, centro_y - glow_radio * 2))
         
         # Jugador principal
-        pygame.draw.circle(superficie, Colores.JUGADOR, (centro_x, centro_y), radio)
+        pygame.draw.circle(superficie, color_jugador, (centro_x, centro_y), radio)
         
         # Brillo interno
         brillo_pos = (centro_x - 3, centro_y - 3)
@@ -155,11 +163,17 @@ class RenderizadorMapa:
                         (centro_x - offset, centro_y + offset),
                         (centro_x + offset, centro_y - offset), 2)
     
-    def _dibujar_enemigo(self, superficie: pygame.Surface, x: int, y: int, en_spawn: bool = False):
+    def _dibujar_enemigo(self, superficie: pygame.Surface, x: int, y: int, en_spawn: bool = False, modo: str = "escapa"):
         """Dibuja un enemigo."""
         centro_x = int(x + self.tamano_celda // 2)
         centro_y = int(y + self.tamano_celda // 2)
         radio = self.tamano_celda // 3
+        
+        # Color del enemigo según el modo
+        if modo == "cazador":
+            color_enemigo = Colores.VERDE_NEON
+        else:
+            color_enemigo = Colores.MAGENTA_NEON
         
         # Si está en spawn, dibujar con opacidad reducida
         alpha = 150 if en_spawn else 255
@@ -168,7 +182,7 @@ class RenderizadorMapa:
         glow_radio = radio + 2 + int(2 * math.sin(self.tiempo * 6))
         glow_surface = pygame.Surface((glow_radio * 4, glow_radio * 4), pygame.SRCALPHA)
         glow_alpha = 80 if en_spawn else 120
-        pygame.draw.circle(glow_surface, (*Colores.MAGENTA_NEON, glow_alpha),
+        pygame.draw.circle(glow_surface, (*color_enemigo, glow_alpha),
                          (glow_radio * 2, glow_radio * 2), glow_radio)
         superficie.blit(glow_surface, (centro_x - glow_radio * 2, centro_y - glow_radio * 2))
         
@@ -176,10 +190,10 @@ class RenderizadorMapa:
         if en_spawn:
             # Crear superficie temporal para aplicar alpha
             temp_surface = pygame.Surface((radio * 2 + 4, radio * 2 + 4), pygame.SRCALPHA)
-            pygame.draw.circle(temp_surface, (*Colores.MAGENTA_NEON, alpha), (radio + 2, radio + 2), radio)
+            pygame.draw.circle(temp_surface, (*color_enemigo, alpha), (radio + 2, radio + 2), radio)
             superficie.blit(temp_surface, (centro_x - radio - 2, centro_y - radio - 2))
         else:
-            pygame.draw.circle(superficie, Colores.MAGENTA_NEON, (centro_x, centro_y), radio)
+            pygame.draw.circle(superficie, color_enemigo, (centro_x, centro_y), radio)
         
         # Ojos (dos puntos) - solo si no está en spawn
         if not en_spawn:
@@ -191,7 +205,8 @@ class RenderizadorMapa:
     def dibujar(self, superficie: pygame.Surface, mapa: Mapa, 
                 jugador: Jugador = None, offset: Tuple[int, int] = (0, 0),
                 trampas: Optional[List[Trampa]] = None,
-                enemigos: Optional[List[Enemigo]] = None):
+                enemigos: Optional[List[Enemigo]] = None,
+                modo: str = "escapa"):
         """
         Dibuja el mapa completo.
         
@@ -202,10 +217,11 @@ class RenderizadorMapa:
             offset: Offset (x, y) para posicionar el mapa.
             trampas: Lista de trampas a dibujar (opcional).
             enemigos: Lista de enemigos a dibujar (opcional).
+            modo: Modo de juego ("escapa" o "cazador").
         """
         offset_x, offset_y = offset
         pos_inicio = mapa.obtener_posicion_inicio_jugador()
-        pos_salida = mapa.obtener_posicion_salida()
+        posiciones_salida = mapa.obtener_posiciones_salida()
         
         # Dibujar todas las celdas
         for fila in range(mapa.alto):
@@ -219,7 +235,7 @@ class RenderizadorMapa:
                 # Marcar posiciones especiales
                 if (fila, col) == pos_inicio:
                     self._dibujar_posicion_especial(superficie, x, y, es_inicio=True)
-                elif (fila, col) == pos_salida:
+                elif (fila, col) in posiciones_salida:
                     self._dibujar_posicion_especial(superficie, x, y, es_inicio=False)
         
         # Dibujar trampas
@@ -239,7 +255,7 @@ class RenderizadorMapa:
                     x = offset_x + pos[1] * self.tamano_celda
                     y = offset_y + pos[0] * self.tamano_celda
                     # Dibujar con opacidad reducida si está en spawn
-                    self._dibujar_enemigo(superficie, x, y, en_spawn=enemigo.estado == EstadoEnemigo.EN_SPAWN)
+                    self._dibujar_enemigo(superficie, x, y, en_spawn=enemigo.estado == EstadoEnemigo.EN_SPAWN, modo=modo)
         
         # Dibujar jugador
         if jugador:
@@ -254,7 +270,7 @@ class RenderizadorMapa:
             
             jugador_x = offset_x + self.posicion_jugador_visual[0]
             jugador_y = offset_y + self.posicion_jugador_visual[1]
-            self._dibujar_jugador(superficie, jugador_x, jugador_y)
+            self._dibujar_jugador(superficie, jugador_x, jugador_y, modo)
     
     def resetear_posicion_jugador(self, jugador: Jugador):
         """Resetea la posición visual del jugador."""

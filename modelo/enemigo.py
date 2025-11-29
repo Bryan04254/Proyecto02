@@ -2,10 +2,17 @@
 Módulo enemigo: Define la clase Enemigo con movimiento e IA.
 """
 
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 from enum import Enum
-from .mapa import Mapa
-from .jugador import Jugador
+
+# Importaciones que funcionan tanto como módulo como ejecutado directamente
+try:
+    from .mapa import Mapa
+    from .jugador import Jugador
+except ImportError:
+    # Si falla la importación relativa, intentar absoluta
+    from modelo.mapa import Mapa
+    from modelo.jugador import Jugador
 
 
 class EstadoEnemigo(Enum):
@@ -61,55 +68,59 @@ class Enemigo:
         """
         return (self.fila, self.columna)
     
-    def mover_arriba(self, mapa: Mapa) -> bool:
+    def mover_arriba(self, mapa: Mapa, modo: str = "escapa") -> bool:
         """
         Mueve al enemigo hacia arriba (disminuye fila).
         
         Args:
             mapa: Mapa en el que se mueve el enemigo.
+            modo: Modo de juego ("escapa" o "cazador").
             
         Returns:
             True si el movimiento fue exitoso, False en caso contrario.
         """
-        return self._mover(mapa, self.fila - 1, self.columna)
+        return self._mover(mapa, self.fila - 1, self.columna, modo)
     
-    def mover_abajo(self, mapa: Mapa) -> bool:
+    def mover_abajo(self, mapa: Mapa, modo: str = "escapa") -> bool:
         """
         Mueve al enemigo hacia abajo (aumenta fila).
         
         Args:
             mapa: Mapa en el que se mueve el enemigo.
+            modo: Modo de juego ("escapa" o "cazador").
             
         Returns:
             True si el movimiento fue exitoso, False en caso contrario.
         """
-        return self._mover(mapa, self.fila + 1, self.columna)
+        return self._mover(mapa, self.fila + 1, self.columna, modo)
     
-    def mover_izquierda(self, mapa: Mapa) -> bool:
+    def mover_izquierda(self, mapa: Mapa, modo: str = "escapa") -> bool:
         """
         Mueve al enemigo hacia la izquierda (disminuye columna).
         
         Args:
             mapa: Mapa en el que se mueve el enemigo.
+            modo: Modo de juego ("escapa" o "cazador").
             
         Returns:
             True si el movimiento fue exitoso, False en caso contrario.
         """
-        return self._mover(mapa, self.fila, self.columna - 1)
+        return self._mover(mapa, self.fila, self.columna - 1, modo)
     
-    def mover_derecha(self, mapa: Mapa) -> bool:
+    def mover_derecha(self, mapa: Mapa, modo: str = "escapa") -> bool:
         """
         Mueve al enemigo hacia la derecha (aumenta columna).
         
         Args:
             mapa: Mapa en el que se mueve el enemigo.
+            modo: Modo de juego ("escapa" o "cazador").
             
         Returns:
             True si el movimiento fue exitoso, False en caso contrario.
         """
-        return self._mover(mapa, self.fila, self.columna + 1)
+        return self._mover(mapa, self.fila, self.columna + 1, modo)
     
-    def _mover(self, mapa: Mapa, nueva_fila: int, nueva_col: int) -> bool:
+    def _mover(self, mapa: Mapa, nueva_fila: int, nueva_col: int, modo: str = "escapa") -> bool:
         """
         Método interno que realiza el movimiento.
         
@@ -117,6 +128,7 @@ class Enemigo:
             mapa: Mapa en el que se mueve el enemigo.
             nueva_fila: Nueva fila destino.
             nueva_col: Nueva columna destino.
+            modo: Modo de juego ("escapa" o "cazador").
             
         Returns:
             True si el movimiento fue exitoso, False en caso contrario.
@@ -125,8 +137,8 @@ class Enemigo:
         if not mapa.es_posicion_valida(nueva_fila, nueva_col):
             return False
         
-        # Verificar si la casilla permite el paso del enemigo
-        if not mapa.es_transitable_por_enemigo(nueva_fila, nueva_col):
+        # Verificar si la casilla permite el paso del enemigo (con reglas según el modo)
+        if not mapa.es_transitable_por_enemigo(nueva_fila, nueva_col, modo=modo):
             return False
         
         # Realizar el movimiento
@@ -211,7 +223,8 @@ class Enemigo:
                 if modo == "escapa":
                     self._perseguir_jugador(mapa, jugador)
                 elif modo == "cazador":
-                    self._huir_del_jugador(mapa, jugador)
+                    # En modo cazador, los enemigos buscan la salida con IA mejorada
+                    self._buscar_salida(mapa, jugador)
                 
                 self.tiempo_desde_ultimo_movimiento = 0.0
     
@@ -293,7 +306,7 @@ class Enemigo:
     
     def _perseguir_jugador(self, mapa: Mapa, jugador: Jugador) -> None:
         """
-        Mueve al enemigo hacia el jugador (modo escapa).
+        Mueve al enemigo hacia el jugador usando pathfinding inteligente (modo escapa).
         
         Args:
             mapa: Mapa del juego.
@@ -302,6 +315,98 @@ class Enemigo:
         jugador_pos = jugador.obtener_posicion()
         enemigo_pos = self.obtener_posicion()
         
+        # Usar pathfinding BFS para encontrar el camino más corto al jugador
+        camino = self._encontrar_camino_bfs_escapa(mapa, enemigo_pos, jugador_pos)
+        
+        if camino and len(camino) >= 2:
+            # El siguiente paso en el camino más corto
+            siguiente_paso = camino[1]  # [0] es la posición actual
+            mejor_movimiento = self._obtener_direccion_hacia(enemigo_pos, siguiente_paso)
+        else:
+            # Si no hay camino (fallback), usar método simple
+            mejor_movimiento = self._perseguir_jugador_simple(mapa, jugador_pos, enemigo_pos)
+        
+        # Aplicar el movimiento
+        if mejor_movimiento:
+            if mejor_movimiento == "arriba":
+                self.mover_arriba(mapa)
+            elif mejor_movimiento == "abajo":
+                self.mover_abajo(mapa)
+            elif mejor_movimiento == "izquierda":
+                self.mover_izquierda(mapa)
+            elif mejor_movimiento == "derecha":
+                self.mover_derecha(mapa)
+    
+    def _encontrar_camino_bfs_escapa(self, mapa: Mapa, inicio: Tuple[int, int], destino: Tuple[int, int]) -> Optional[List[Tuple[int, int]]]:
+        """
+        Encuentra el camino más corto desde inicio hasta destino usando BFS (modo escapa).
+        Los enemigos pueden pasar por Camino y Liana, pero no por Tunel.
+        
+        Args:
+            mapa: Mapa del juego.
+            inicio: Posición inicial (fila, columna).
+            destino: Posición destino (fila, columna).
+            
+        Returns:
+            Lista de posiciones desde inicio hasta destino, o None si no hay camino.
+        """
+        from collections import deque
+        
+        if inicio == destino:
+            return [inicio]
+        
+        # Verificar que inicio y destino sean transitables para enemigos en modo escapa
+        if not mapa.es_transitable_por_enemigo(inicio[0], inicio[1], modo="escapa"):
+            return None
+        if not mapa.es_transitable_por_enemigo(destino[0], destino[1], modo="escapa"):
+            return None
+        
+        visitado = [[False for _ in range(mapa.ancho)] for _ in range(mapa.alto)]
+        padre = {}
+        cola = deque([inicio])
+        visitado[inicio[0]][inicio[1]] = True
+        
+        direcciones = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        
+        while cola:
+            fila, col = cola.popleft()
+            
+            if (fila, col) == destino:
+                # Reconstruir camino
+                camino = []
+                actual = destino
+                while actual is not None:
+                    camino.append(actual)
+                    actual = padre.get(actual)
+                return camino[::-1]  # Invertir para tener inicio -> destino
+            
+            for df, dc in direcciones:
+                nueva_fila = fila + df
+                nueva_col = col + dc
+                
+                if (0 <= nueva_fila < mapa.alto and 
+                    0 <= nueva_col < mapa.ancho and 
+                    not visitado[nueva_fila][nueva_col] and
+                    mapa.es_transitable_por_enemigo(nueva_fila, nueva_col, modo="escapa")):
+                    
+                    visitado[nueva_fila][nueva_col] = True
+                    padre[(nueva_fila, nueva_col)] = (fila, col)
+                    cola.append((nueva_fila, nueva_col))
+        
+        return None
+    
+    def _perseguir_jugador_simple(self, mapa: Mapa, jugador_pos: Tuple[int, int], enemigo_pos: Tuple[int, int]) -> Optional[str]:
+        """
+        Método simple de persecución como fallback (usa distancia de Manhattan).
+        
+        Args:
+            mapa: Mapa del juego.
+            jugador_pos: Posición del jugador.
+            enemigo_pos: Posición actual del enemigo.
+            
+        Returns:
+            Nombre de la dirección a mover, o None si no hay movimiento válido.
+        """
         # Calcular distancia de Manhattan
         distancia_actual = abs(jugador_pos[0] - enemigo_pos[0]) + abs(jugador_pos[1] - enemigo_pos[1])
         
@@ -335,16 +440,7 @@ class Enemigo:
                 self.fila = fila_original
                 self.columna = col_original
         
-        # Aplicar el mejor movimiento
-        if mejor_movimiento:
-            if mejor_movimiento == "arriba":
-                self.mover_arriba(mapa)
-            elif mejor_movimiento == "abajo":
-                self.mover_abajo(mapa)
-            elif mejor_movimiento == "izquierda":
-                self.mover_izquierda(mapa)
-            elif mejor_movimiento == "derecha":
-                self.mover_derecha(mapa)
+        return mejor_movimiento
     
     def _huir_del_jugador(self, mapa: Mapa, jugador: Jugador) -> None:
         """
@@ -401,21 +497,280 @@ class Enemigo:
             elif mejor_movimiento == "derecha":
                 self.mover_derecha(mapa)
     
+    def _buscar_salida(self, mapa: Mapa, jugador: Optional['Jugador'] = None) -> None:
+        """
+        Mueve al enemigo hacia la salida más cercana usando pathfinding inteligente (modo cazador).
+        Si el jugador está cerca, intenta evitarlo mientras se dirige a la salida.
+        
+        Args:
+            mapa: Mapa del juego.
+            jugador: Jugador (opcional) para evitar si está cerca.
+        """
+        posiciones_salida = mapa.obtener_posiciones_salida()
+        if not posiciones_salida:
+            return
+        
+        enemigo_pos = self.obtener_posicion()
+        
+        # Encontrar la salida más cercana usando pathfinding
+        salida_mas_cercana = None
+        camino_mas_corto = None
+        menor_longitud = float('inf')
+        
+        for salida in posiciones_salida:
+            camino = self._encontrar_camino_bfs(mapa, enemigo_pos, salida)
+            if camino and len(camino) < menor_longitud:
+                menor_longitud = len(camino)
+                salida_mas_cercana = salida
+                camino_mas_corto = camino
+        
+        if not salida_mas_cercana or not camino_mas_corto or len(camino_mas_corto) < 2:
+            # Si no hay camino, usar método simple como fallback
+            self._buscar_salida_simple(mapa, posiciones_salida)
+            return
+        
+        # El siguiente paso en el camino más corto
+        siguiente_paso = camino_mas_corto[1]  # [0] es la posición actual
+        
+        # Si el jugador está cerca (distancia <= 3), considerar evitarlo
+        if jugador:
+            jugador_pos = jugador.obtener_posicion()
+            distancia_al_jugador = abs(jugador_pos[0] - enemigo_pos[0]) + abs(jugador_pos[1] - enemigo_pos[1])
+            
+            if distancia_al_jugador <= 3:
+                # El jugador está cerca, intentar evitar pero priorizar la salida
+                mejor_movimiento = self._elegir_movimiento_evasivo(mapa, siguiente_paso, jugador_pos, enemigo_pos)
+            else:
+                # El jugador está lejos, ir directo hacia la salida
+                mejor_movimiento = self._obtener_direccion_hacia(enemigo_pos, siguiente_paso)
+        else:
+            mejor_movimiento = self._obtener_direccion_hacia(enemigo_pos, siguiente_paso)
+        
+        # Aplicar el movimiento
+        if mejor_movimiento:
+            if mejor_movimiento == "arriba":
+                self.mover_arriba(mapa, modo="cazador")
+            elif mejor_movimiento == "abajo":
+                self.mover_abajo(mapa, modo="cazador")
+            elif mejor_movimiento == "izquierda":
+                self.mover_izquierda(mapa, modo="cazador")
+            elif mejor_movimiento == "derecha":
+                self.mover_derecha(mapa, modo="cazador")
+    
+    def _encontrar_camino_bfs(self, mapa: Mapa, inicio: Tuple[int, int], destino: Tuple[int, int]) -> Optional[List[Tuple[int, int]]]:
+        """
+        Encuentra el camino más corto desde inicio hasta destino usando BFS.
+        
+        Args:
+            mapa: Mapa del juego.
+            inicio: Posición inicial (fila, columna).
+            destino: Posición destino (fila, columna).
+            
+        Returns:
+            Lista de posiciones desde inicio hasta destino, o None si no hay camino.
+        """
+        from collections import deque
+        
+        if inicio == destino:
+            return [inicio]
+        
+        # Verificar que inicio y destino sean transitables para enemigos en modo cazador
+        if not mapa.es_transitable_por_enemigo(inicio[0], inicio[1], modo="cazador"):
+            return None
+        if not mapa.es_transitable_por_enemigo(destino[0], destino[1], modo="cazador"):
+            return None
+        
+        visitado = [[False for _ in range(mapa.ancho)] for _ in range(mapa.alto)]
+        padre = {}
+        cola = deque([inicio])
+        visitado[inicio[0]][inicio[1]] = True
+        
+        direcciones = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        
+        while cola:
+            fila, col = cola.popleft()
+            
+            if (fila, col) == destino:
+                # Reconstruir camino
+                camino = []
+                actual = destino
+                while actual is not None:
+                    camino.append(actual)
+                    actual = padre.get(actual)
+                return camino[::-1]  # Invertir para tener inicio -> destino
+            
+            for df, dc in direcciones:
+                nueva_fila = fila + df
+                nueva_col = col + dc
+                
+                if (0 <= nueva_fila < mapa.alto and 
+                    0 <= nueva_col < mapa.ancho and 
+                    not visitado[nueva_fila][nueva_col] and
+                    mapa.es_transitable_por_enemigo(nueva_fila, nueva_col, modo="cazador")):
+                    
+                    visitado[nueva_fila][nueva_col] = True
+                    padre[(nueva_fila, nueva_col)] = (fila, col)
+                    cola.append((nueva_fila, nueva_col))
+        
+        return None
+    
+    def _obtener_direccion_hacia(self, desde: Tuple[int, int], hacia: Tuple[int, int]) -> Optional[str]:
+        """
+        Obtiene la dirección (arriba, abajo, izquierda, derecha) para moverse de 'desde' hacia 'hacia'.
+        
+        Args:
+            desde: Posición actual (fila, columna).
+            hacia: Posición destino (fila, columna).
+            
+        Returns:
+            Nombre de la dirección o None si ya está en el destino.
+        """
+        df = hacia[0] - desde[0]
+        dc = hacia[1] - desde[1]
+        
+        if df < 0:
+            return "arriba"
+        elif df > 0:
+            return "abajo"
+        elif dc < 0:
+            return "izquierda"
+        elif dc > 0:
+            return "derecha"
+        
+        return None
+    
+    def _elegir_movimiento_evasivo(self, mapa: Mapa, siguiente_paso_ideal: Tuple[int, int], 
+                                   jugador_pos: Tuple[int, int], enemigo_pos: Tuple[int, int]) -> Optional[str]:
+        """
+        Elige un movimiento que evite al jugador pero se acerque a la salida.
+        
+        Args:
+            mapa: Mapa del juego.
+            siguiente_paso_ideal: El siguiente paso ideal hacia la salida.
+            jugador_pos: Posición del jugador.
+            enemigo_pos: Posición actual del enemigo.
+            
+        Returns:
+            Nombre de la dirección a mover, o None si no hay movimiento válido.
+        """
+        # Calcular distancia al jugador desde cada posible movimiento
+        movimientos = [
+            ("arriba", (-1, 0)),
+            ("abajo", (1, 0)),
+            ("izquierda", (0, -1)),
+            ("derecha", (0, 1))
+        ]
+        
+        mejor_movimiento = None
+        mejor_puntuacion = float('-inf')
+        
+        for nombre, (df, dc) in movimientos:
+            nueva_fila = enemigo_pos[0] + df
+            nueva_col = enemigo_pos[1] + dc
+            
+            # Verificar que el movimiento sea válido
+            if not mapa.es_posicion_valida(nueva_fila, nueva_col):
+                continue
+            if not mapa.es_transitable_por_enemigo(nueva_fila, nueva_col, modo="cazador"):
+                continue
+            
+            nueva_pos = (nueva_fila, nueva_col)
+            
+            # Calcular puntuación: priorizar acercarse a la salida, pero evitar al jugador
+            distancia_a_salida = abs(siguiente_paso_ideal[0] - nueva_fila) + abs(siguiente_paso_ideal[1] - nueva_col)
+            distancia_al_jugador = abs(jugador_pos[0] - nueva_fila) + abs(jugador_pos[1] - nueva_col)
+            
+            # Puntuación: más puntos si está más cerca de la salida ideal y más lejos del jugador
+            # Pero siempre priorizar acercarse a la salida
+            puntuacion = -distancia_a_salida * 2  # Prioridad alta: acercarse a la salida
+            if distancia_al_jugador > 2:  # Bonus si está lejos del jugador
+                puntuacion += distancia_al_jugador * 0.5
+            
+            if puntuacion > mejor_puntuacion:
+                mejor_puntuacion = puntuacion
+                mejor_movimiento = nombre
+        
+        return mejor_movimiento
+    
+    def _buscar_salida_simple(self, mapa: Mapa, posiciones_salida: List[Tuple[int, int]]) -> None:
+        """
+        Método simple de búsqueda de salida como fallback (usa distancia de Manhattan).
+        
+        Args:
+            mapa: Mapa del juego.
+            posiciones_salida: Lista de posiciones de salida.
+        """
+        enemigo_pos = self.obtener_posicion()
+        
+        # Encontrar la salida más cercana
+        salida_mas_cercana = None
+        menor_distancia = float('inf')
+        
+        for salida in posiciones_salida:
+            distancia = abs(salida[0] - enemigo_pos[0]) + abs(salida[1] - enemigo_pos[1])
+            if distancia < menor_distancia:
+                menor_distancia = distancia
+                salida_mas_cercana = salida
+        
+        if not salida_mas_cercana:
+            return
+        
+        # Probar movimientos en las 4 direcciones y elegir el que más reduzca la distancia
+        mejor_movimiento = None
+        menor_distancia_nueva = menor_distancia
+        
+        movimientos = [
+            ("arriba", self.mover_arriba),
+            ("abajo", self.mover_abajo),
+            ("izquierda", self.mover_izquierda),
+            ("derecha", self.mover_derecha)
+        ]
+        
+        for nombre, movimiento_func in movimientos:
+            # Guardar posición actual
+            fila_original = self.fila
+            col_original = self.columna
+            
+            # Intentar movimiento con modo cazador
+            if movimiento_func(mapa, modo="cazador"):
+                # Calcular nueva distancia a la salida
+                nueva_pos = self.obtener_posicion()
+                nueva_distancia = abs(salida_mas_cercana[0] - nueva_pos[0]) + abs(salida_mas_cercana[1] - nueva_pos[1])
+                
+                if nueva_distancia < menor_distancia_nueva:
+                    menor_distancia_nueva = nueva_distancia
+                    mejor_movimiento = nombre
+                
+                # Revertir movimiento para probar el siguiente
+                self.fila = fila_original
+                self.columna = col_original
+        
+        # Aplicar el mejor movimiento
+        if mejor_movimiento:
+            if mejor_movimiento == "arriba":
+                self.mover_arriba(mapa, modo="cazador")
+            elif mejor_movimiento == "abajo":
+                self.mover_abajo(mapa, modo="cazador")
+            elif mejor_movimiento == "izquierda":
+                self.mover_izquierda(mapa, modo="cazador")
+            elif mejor_movimiento == "derecha":
+                self.mover_derecha(mapa, modo="cazador")
+    
     def ha_llegado_a_salida(self, mapa: Mapa) -> bool:
         """
-        Verifica si el enemigo ha llegado a la salida del mapa.
+        Verifica si el enemigo ha llegado a alguna salida del mapa.
         
         Args:
             mapa: Mapa del juego.
             
         Returns:
-            True si el enemigo está en la posición de salida, False en caso contrario.
+            True si el enemigo está en alguna posición de salida, False en caso contrario.
         """
         if not self.esta_vivo():
             return False
         
-        salida = mapa.obtener_posicion_salida()
-        return self.obtener_posicion() == salida
+        posicion_actual = self.obtener_posicion()
+        return mapa.es_posicion_salida(posicion_actual[0], posicion_actual[1])
     
     def __repr__(self) -> str:
         """Representación del enemigo."""

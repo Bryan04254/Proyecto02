@@ -21,37 +21,37 @@ class ConfiguracionDificultad:
     # Configuraciones por dificultad
     CONFIGURACIONES: Dict[Dificultad, Dict[str, Any]] = {
         Dificultad.FACIL: {
-            "cantidad_enemigos": 2,
+            "cantidad_enemigos": 4,  # Aumentado de 2 a 4
             "velocidad_enemigos": 0.5,  # movimientos por segundo
-            "energia_inicial_jugador": 150,
+            "energia_inicial_jugador": 200,  # Aumentado de 150 a 200
             "puntos_base_escapa": 100,
             "puntos_base_cazador": 50,
             "puntos_por_enemigo_eliminado": 15,
             "puntos_perdidos_por_escape": 5,
             "puntos_ganados_por_captura": 10,
-            "tiempo_respawn_enemigo": 15.0,  # segundos
+            "tiempo_respawn_enemigo": 10.0,  # segundos (según especificación)
         },
         Dificultad.NORMAL: {
-            "cantidad_enemigos": 4,
+            "cantidad_enemigos": 8,  # Aumentado de 4 a 8
             "velocidad_enemigos": 1.0,
-            "energia_inicial_jugador": 100,
+            "energia_inicial_jugador": 150,  # Aumentado de 100 a 150
             "puntos_base_escapa": 200,
             "puntos_base_cazador": 100,
             "puntos_por_enemigo_eliminado": 20,
             "puntos_perdidos_por_escape": 10,
             "puntos_ganados_por_captura": 20,
-            "tiempo_respawn_enemigo": 10.0,
+            "tiempo_respawn_enemigo": 10.0,  # segundos (según especificación)
         },
         Dificultad.DIFICIL: {
-            "cantidad_enemigos": 6,
+            "cantidad_enemigos": 12,  # Aumentado de 6 a 12
             "velocidad_enemigos": 1.5,
-            "energia_inicial_jugador": 75,
+            "energia_inicial_jugador": 120,  # Aumentado de 75 a 120
             "puntos_base_escapa": 300,
             "puntos_base_cazador": 150,
             "puntos_por_enemigo_eliminado": 30,
             "puntos_perdidos_por_escape": 20,
             "puntos_ganados_por_captura": 40,
-            "tiempo_respawn_enemigo": 7.0,
+            "tiempo_respawn_enemigo": 10.0,  # segundos (según especificación)
         }
     }
     
