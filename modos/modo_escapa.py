@@ -576,16 +576,56 @@ class GameModeEscapa:
             # Calcular puntaje final
             puntos_base = self.config["puntos_base_escapa"]
             
-            # Bono por tiempo (menos tiempo = más puntos)
-            # Máximo 100 puntos extra si termina en menos de 60 segundos
-            bono_tiempo = max(0, 100 - int(self.tiempo_juego))
+            # Bono por tiempo mejorado (menos tiempo = más puntos)
+            # Máximo 150 puntos extra, escala mejor
+            if self.tiempo_juego <= 30:
+                bono_tiempo = 150  # Terminar en menos de 30 segundos
+            elif self.tiempo_juego <= 60:
+                bono_tiempo = 120 - int(self.tiempo_juego)  # Entre 30-60 segundos
+            elif self.tiempo_juego <= 90:
+                bono_tiempo = 90 - int(self.tiempo_juego * 0.5)  # Entre 60-90 segundos
+            else:
+                bono_tiempo = max(0, 60 - int(self.tiempo_juego * 0.33))  # Más de 90 segundos
             
             # Bono por enemigos eliminados
             bono_enemigos = self.enemigos_eliminados * self.config["puntos_por_enemigo_eliminado"]
             
-            # Bono por dificultad (ya está en puntos_base)
+            # Bono por energía restante (0.5 puntos por punto de energía)
+            energia_restante = self.jugador.obtener_energia_actual()
+            bono_energia = int(energia_restante * 0.5)
             
-            self.puntos = puntos_base + bono_tiempo + bono_enemigos
+            # Bono por eficiencia (menos movimientos = más puntos)
+            # Si terminas rápido con pocos movimientos, bono adicional
+            if self.tiempo_juego > 0 and self.movimientos > 0:
+                eficiencia = self.tiempo_juego / self.movimientos  # Tiempo por movimiento
+                if eficiencia < 0.5:  # Muy eficiente (menos de 0.5 segundos por movimiento)
+                    bono_eficiencia = 30
+                elif eficiencia < 1.0:
+                    bono_eficiencia = 20
+                elif eficiencia < 1.5:
+                    bono_eficiencia = 10
+                else:
+                    bono_eficiencia = 0
+            else:
+                bono_eficiencia = 0
+            
+            # Bono por trampas usadas eficientemente
+            trampas_activas = len(self.gestor_trampas.obtener_trampas_activas())
+            trampas_usadas = 3 - self.trampas_disponibles  # Trampas que se usaron
+            if trampas_usadas > 0 and self.enemigos_eliminados > 0:
+                # Eficiencia: enemigos eliminados / trampas usadas
+                eficiencia_trampas = self.enemigos_eliminados / trampas_usadas
+                if eficiencia_trampas >= 1.0:  # Al menos 1 enemigo por trampa
+                    bono_trampas = int(eficiencia_trampas * 5)  # Hasta 15 puntos extra
+                else:
+                    bono_trampas = 0
+            else:
+                bono_trampas = 0
+            
+            self.puntos = puntos_base + bono_tiempo + bono_enemigos + bono_energia + bono_eficiencia + bono_trampas
+            
+            # Puntos mínimos garantizados
+            self.puntos = max(50, int(self.puntos))
             
             # Registrar puntaje
             self.scoreboard.registrar_puntaje(

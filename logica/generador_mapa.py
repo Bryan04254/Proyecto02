@@ -326,8 +326,9 @@ class GeneradorMapa:
         
         if modo == "cazador":
             # En modo cazador: más lianas (jugador puede pasar), pocos túneles (jugador NO puede pasar)
-            prob_liana = 0.15  # Lianas moderadas
-            prob_tunel = 0.05  # Túneles en 5% (visible pero controlado)
+            # Reducido 50%: 0.15 -> 0.075, 0.05 -> 0.025
+            prob_liana = 0.075  # Lianas reducidas a 7.5%
+            prob_tunel = 0.025  # Túneles reducidos a 2.5%
         
         # Encontrar caminos válidos a todas las salidas usando BFS
         # En modo cazador, usar reglas de transición del modo cazador

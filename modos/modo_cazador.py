@@ -68,6 +68,11 @@ class GameModeCazador:
         self.enemigos_capturados = 0
         self.enemigos_escapados = 0
         self.movimientos = 0
+        self.ultima_captura_tiempo = 0.0  # Para sistema de combos
+        self.combo_actual = 0  # Contador de combos
+        self.puntos_ganados_ultima_captura = 0  # Para mostrar feedback visual
+        self.tiempo_mostrar_puntos = 0.0  # Tiempo para mostrar puntos ganados
+        self.enemigos_cerca_salida = []  # Lista de enemigos cerca de salida
     
     def _buscar_posicion_cercana(self, posicion: Tuple[int, int]) -> Tuple[int, int]:
         """Busca una posición transitable cercana a la posición dada."""
@@ -243,11 +248,25 @@ class GameModeCazador:
             self._terminar_juego()
             return
         
+        # Actualizar tiempo para mostrar puntos ganados
+        if self.tiempo_mostrar_puntos > 0:
+            self.tiempo_mostrar_puntos -= delta_tiempo
+        
         # Actualizar enemigos (buscan la salida)
+        self.enemigos_cerca_salida = []  # Resetear lista
         for enemigo in self.enemigos:
             if enemigo.esta_vivo():
                 # Enemigos buscan la salida más cercana
                 enemigo.actualizar(self.mapa, self.jugador, delta_tiempo, "cazador", None)
+                
+                # Verificar proximidad a salida (para advertencia visual)
+                pos_enemigo = enemigo.obtener_posicion()
+                posiciones_salida = self.mapa.obtener_posiciones_salida()
+                for salida in posiciones_salida:
+                    distancia = abs(pos_enemigo[0] - salida[0]) + abs(pos_enemigo[1] - salida[1])
+                    if distancia <= 3:  # Enemigo está a 3 casillas o menos de una salida
+                        self.enemigos_cerca_salida.append((enemigo, distancia))
+                        break
                 
                 # Verificar si un enemigo llegó a la salida (el jugador pierde)
                 if enemigo.ha_llegado_a_salida(self.mapa):
@@ -281,6 +300,7 @@ class GameModeCazador:
         """
         Maneja cuando el jugador captura a un enemigo (solo contacto).
         El jugador gana el doble de puntos que perdería si el enemigo escapara.
+        Incluye sistema de combos por capturas rápidas.
         
         Args:
             enemigo: Enemigo capturado.
@@ -288,8 +308,25 @@ class GameModeCazador:
         # El jugador gana el doble de puntos que perdería si escapara
         puntos_perdidos_por_escape = self.config["puntos_perdidos_por_escape"]
         puntos_ganados = puntos_perdidos_por_escape * 2
+        
+        # Sistema de combos: si capturas rápido, bono adicional
+        tiempo_desde_ultima_captura = self.tiempo_juego - self.ultima_captura_tiempo
+        if tiempo_desde_ultima_captura <= 5.0 and self.ultima_captura_tiempo > 0:
+            # Captura rápida (menos de 5 segundos desde la última)
+            self.combo_actual += 1
+            bono_combo = min(20, self.combo_actual * 5)  # Hasta 20 puntos extra por combo
+            puntos_ganados += bono_combo
+        else:
+            # Resetear combo si pasó mucho tiempo
+            self.combo_actual = 1
+        
         self.puntos += puntos_ganados
         self.enemigos_capturados += 1
+        self.ultima_captura_tiempo = self.tiempo_juego
+        
+        # Guardar puntos ganados para feedback visual
+        self.puntos_ganados_ultima_captura = puntos_ganados
+        self.tiempo_mostrar_puntos = 2.0  # Mostrar por 2 segundos
         
         # El enemigo desaparece (no respawnea)
         enemigo.matar()
@@ -364,11 +401,31 @@ class GameModeCazador:
         bonus_tiempo = int(tiempo_restante * 2)  # 2 puntos por segundo restante
         self.puntos += bonus_tiempo
         
-        # Bonus por dificultad
+        # Bono por energía restante (0.3 puntos por punto de energía)
+        energia_restante = self.jugador.obtener_energia_actual()
+        bono_energia = int(energia_restante * 0.3)
+        self.puntos += bono_energia
+        
+        # Bono por velocidad de captura (si capturaste todos rápido)
+        if self.enemigos_capturados == 3 and self.tiempo_juego < self.tiempo_limite * 0.5:
+            # Capturaste todos en menos de la mitad del tiempo
+            bono_velocidad = 50
+            self.puntos += bono_velocidad
+        elif self.enemigos_capturados == 3 and self.tiempo_juego < self.tiempo_limite * 0.75:
+            # Capturaste todos en menos de 3/4 del tiempo
+            bono_velocidad = 25
+            self.puntos += bono_velocidad
+        
+        # Bonus por dificultad (ahora incluye Fácil)
         if self.dificultad == Dificultad.DIFICIL:
             self.puntos = int(self.puntos * 1.5)
         elif self.dificultad == Dificultad.NORMAL:
             self.puntos = int(self.puntos * 1.2)
+        elif self.dificultad == Dificultad.FACIL:
+            self.puntos = int(self.puntos * 1.1)
+        
+        # Puntos mínimos garantizados
+        self.puntos = max(50, int(self.puntos))
         
         # Registrar puntaje
         scoreboard = ScoreBoard()
@@ -401,7 +458,10 @@ class GameModeCazador:
             "energia_jugador": self.jugador.obtener_energia_actual(),
             "energia_maxima": self.jugador.obtener_energia_maxima(),
             "juego_terminado": self.juego_terminado,
-            "victoria": self.victoria
+            "victoria": self.victoria,
+            "combo_actual": self.combo_actual,
+            "puntos_ganados_ultima_captura": self.puntos_ganados_ultima_captura if self.tiempo_mostrar_puntos > 0 else 0,
+            "enemigos_cerca_salida": len(self.enemigos_cerca_salida)
         }
     
     def __repr__(self) -> str:
