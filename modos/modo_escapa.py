@@ -20,6 +20,7 @@ class GameModeEscapa:
     def __init__(self, mapa: Optional[Mapa] = None, 
                  nombre_jugador: str = "Jugador",
                  dificultad: Dificultad = Dificultad.NORMAL,
+                 tiempo_limite: float = 120.0,
                  ancho_mapa: int = 15,
                  alto_mapa: int = 15):
         """
@@ -29,6 +30,7 @@ class GameModeEscapa:
             mapa: Mapa del juego. Si es None, se genera uno nuevo.
             nombre_jugador: Nombre del jugador.
             dificultad: Nivel de dificultad.
+            tiempo_limite: Tiempo límite en segundos. Si se acaba, el jugador pierde.
             ancho_mapa: Ancho del mapa si se genera uno nuevo.
             alto_mapa: Alto del mapa si se genera uno nuevo.
         """
@@ -98,6 +100,7 @@ class GameModeEscapa:
         # ============================================
         # ESTADO DEL JUEGO
         # ============================================
+        self.tiempo_limite = tiempo_limite  # Tiempo límite en segundos
         self.tiempo_juego = 0.0  # Tiempo transcurrido en segundos
         self.puntos = 0  # Puntos acumulados (se calculan al final)
         self.juego_terminado = False  # Flag de fin de juego
@@ -484,6 +487,12 @@ class GameModeEscapa:
         
         self.tiempo_juego += delta_tiempo
         
+        # Verificar si se acabó el tiempo (DERROTA por tiempo)
+        if self.tiempo_juego >= self.tiempo_limite:
+            print(f"[DEBUG] Tiempo agotado. Llamando _terminar_juego con derrota...")
+            self._terminar_juego(victoria=False)
+            return
+        
         # Recuperar energía del jugador gradualmente (1 punto por segundo)
         self.jugador.actualizar_energia(delta_tiempo, tasa_recuperacion=1.0)
         
@@ -513,11 +522,13 @@ class GameModeEscapa:
         # Verificar si un enemigo alcanzó al jugador
         for enemigo in self.enemigos:
             if enemigo.esta_vivo() and enemigo.obtener_posicion() == self.jugador.obtener_posicion():
+                print(f"[DEBUG] Enemigo alcanzó al jugador. Llamando _terminar_juego con derrota...")
                 self._terminar_juego(victoria=False)
                 return
         
         # Verificar si el jugador llegó a la salida
         if self.jugador.ha_llegado_a_salida(self.mapa):
+            print(f"[DEBUG] ¡Victoria detectada! Jugador en salida. Llamando _terminar_juego...")
             self._terminar_juego(victoria=True)
             return
     
@@ -548,6 +559,10 @@ class GameModeEscapa:
         
         if movimiento_exitoso:
             self.movimientos += 1
+            # Verificar inmediatamente si el jugador llegó a la salida después del movimiento
+            if self.jugador.ha_llegado_a_salida(self.mapa):
+                print(f"[DEBUG] ¡Victoria detectada inmediatamente después de mover! Jugador en salida.")
+                self._terminar_juego(victoria=True)
         
         return movimiento_exitoso
     
@@ -595,6 +610,9 @@ class GameModeEscapa:
         Args:
             victoria: True si el jugador ganó, False si perdió.
         """
+        print(f"[DEBUG] _terminar_juego llamado con victoria={victoria}")
+        print(f"[DEBUG] Estado antes: juego_terminado={self.juego_terminado}, victoria={self.victoria}")
+        
         self.juego_terminado = True
         self.victoria = victoria
         
@@ -681,15 +699,60 @@ class GameModeEscapa:
             
             # Puntos mínimos garantizados si ganas (50 puntos mínimo)
             self.puntos = max(50, int(self.puntos))
+        else:
+            # ============================================
+            # CÁLCULO DE PUNTAJE FINAL (DERROTA)
+            # ============================================
+            # En caso de derrota, se otorgan puntos por:
+            # 1. Tiempo sobrevivido
+            # 2. Enemigos eliminados
+            # 3. Energía restante
+            # 4. Progreso (movimientos realizados)
             
-            # Registrar puntaje
-            self.scoreboard.registrar_puntaje(
+            # Puntos base reducidos por derrota
+            puntos_base = 10
+            
+            # Bono por tiempo sobrevivido (hasta que se acabó el tiempo o te alcanzaron)
+            # Máximo 50 puntos si sobreviviste mucho tiempo
+            tiempo_sobrevivido = min(self.tiempo_juego, self.tiempo_limite)
+            bono_tiempo = int(tiempo_sobrevivido * 0.5)  # 0.5 puntos por segundo
+            
+            # Bono por enemigos eliminados (mismo que en victoria)
+            bono_enemigos = self.enemigos_eliminados * self.config["puntos_por_enemigo_eliminado"]
+            
+            # Bono por energía restante (reducido)
+            energia_restante = self.jugador.obtener_energia_actual()
+            bono_energia = int(energia_restante * 0.2)  # 0.2 puntos por punto de energía
+            
+            # Bono por progreso (movimientos realizados, pero reducido)
+            # Recompensa por intentar avanzar
+            bono_progreso = min(20, self.movimientos // 5)  # Hasta 20 puntos por movimientos
+            
+            # Sumar todos los bonos
+            self.puntos = puntos_base + bono_tiempo + bono_enemigos + bono_energia + bono_progreso
+            
+            # Puntos mínimos garantizados (10 puntos mínimo)
+            self.puntos = max(10, int(self.puntos))
+        
+        # ============================================
+        # REGISTRO DE PUNTAJE (SIEMPRE)
+        # ============================================
+        # Registrar el puntaje tanto en victoria como en derrota
+        try:
+            print(f"[DEBUG] Registrando puntaje: jugador={self.nombre_jugador}, puntos={self.puntos}, victoria={victoria}")
+            puntaje_registrado = self.scoreboard.registrar_puntaje(
                 "escapa",
                 self.nombre_jugador,
                 self.puntos,
                 tiempo_juego=self.tiempo_juego,
                 movimientos=self.movimientos
             )
+            print(f"[DEBUG] Puntaje registrado exitosamente: {puntaje_registrado}")
+        except Exception as e:
+            # Mostrar error si hay problema al registrar
+            print(f"ERROR al registrar puntaje: {e}")
+            import traceback
+            traceback.print_exc()
     
     def obtener_estado(self) -> dict:
         """

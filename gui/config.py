@@ -172,5 +172,5 @@ class Config:
         Returns:
             Ruta absoluta del directorio donde se guardan los archivos de puntajes.
         """
-        return os.path.join(Config.obtener_ruta_base(), "puntajes")
+        return os.path.join(Config.obtener_ruta_base(), "data", "puntajes")
 

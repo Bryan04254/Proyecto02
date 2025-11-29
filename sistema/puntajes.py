@@ -124,8 +124,15 @@ class ScoreBoard:
         Args:
             directorio_puntajes: Directorio donde se guardan los archivos de puntajes.
         """
-        # Directorio donde se guardan los archivos JSON de puntajes
-        self.directorio_puntajes = directorio_puntajes
+        # Normalizar la ruta a absoluta si es relativa
+        if not os.path.isabs(directorio_puntajes):
+            # Obtener el directorio raíz del proyecto (asumiendo que este archivo está en sistema/)
+            ruta_base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            directorio_puntajes = os.path.join(ruta_base, directorio_puntajes)
+        
+        # Directorio donde se guardan los archivos JSON de puntajes (ruta absoluta)
+        self.directorio_puntajes = os.path.normpath(directorio_puntajes)
+        
         # Diccionario que almacena los puntajes en memoria
         # Separado por modo de juego
         self._puntajes: dict = {
@@ -136,7 +143,8 @@ class ScoreBoard:
         # Crear directorio si no existe
         # Esto asegura que el directorio esté disponible para guardar puntajes
         if not os.path.exists(self.directorio_puntajes):
-            os.makedirs(self.directorio_puntajes)
+            os.makedirs(self.directorio_puntajes, exist_ok=True)
+            print(f"[DEBUG] Directorio de puntajes creado: {self.directorio_puntajes}")
         
         # Cargar puntajes existentes desde archivos JSON
         self._cargar_puntajes()
@@ -243,6 +251,7 @@ class ScoreBoard:
         # Cargar puntajes para ambos modos
         for modo in [ModoJuego.ESCAPA.value, ModoJuego.CAZADOR.value]:
             archivo = self._obtener_archivo_puntajes(modo)
+            print(f"[DEBUG _cargar_puntajes] Cargando {modo} desde: {archivo}")
             if os.path.exists(archivo):
                 try:
                     # Leer archivo JSON y convertir a objetos Puntaje
@@ -250,13 +259,24 @@ class ScoreBoard:
                         data = json.load(f)
                         # Convertir cada diccionario a un objeto Puntaje
                         self._puntajes[modo] = [Puntaje.from_dict(p) for p in data]
+                        print(f"[DEBUG _cargar_puntajes] {modo}: {len(self._puntajes[modo])} puntajes cargados")
                 except (json.JSONDecodeError, KeyError, IOError) as e:
                     # Si hay error al cargar, inicializar lista vacía
-                    print(f"Error al cargar puntajes de {archivo}: {e}")
+                    print(f"[ERROR] Error al cargar puntajes de {archivo}: {e}")
                     self._puntajes[modo] = []
             else:
                 # Si el archivo no existe, inicializar lista vacía
+                print(f"[DEBUG _cargar_puntajes] Archivo no existe: {archivo}")
                 self._puntajes[modo] = []
+    
+    def recargar_puntajes(self) -> None:
+        """
+        Recarga los puntajes desde los archivos JSON.
+        
+        Útil para actualizar la lista de puntajes después de que se hayan
+        guardado nuevos puntajes en los archivos.
+        """
+        self._cargar_puntajes()
     
     def _guardar_puntajes(self, modo: str) -> None:
         """
@@ -269,13 +289,37 @@ class ScoreBoard:
             modo: Modo de juego ("escapa" o "cazador").
         """
         archivo = self._obtener_archivo_puntajes(modo)
+        print(f"[DEBUG] Intentando guardar puntajes en: {archivo}")
+        print(f"[DEBUG] Directorio base: {self.directorio_puntajes}")
+        print(f"[DEBUG] Total de puntajes a guardar: {len(self._puntajes[modo])}")
+        
         try:
+            # Asegurar que el directorio existe antes de guardar
+            directorio = os.path.dirname(archivo)
+            if not os.path.exists(directorio):
+                os.makedirs(directorio, exist_ok=True)
+                print(f"[DEBUG] Directorio creado: {directorio}")
+            
             # Convertir objetos Puntaje a diccionarios
             data = [p.to_dict() for p in self._puntajes[modo]]
+            print(f"[DEBUG] Datos a guardar: {len(data)} puntajes")
+            
             # Guardar en archivo JSON con formato legible (indentación)
             with open(archivo, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
-        except IOError as e:
-            # Si hay error al guardar, mostrar mensaje pero no fallar
-            print(f"Error al guardar puntajes en {archivo}: {e}")
+                # Forzar escritura al disco antes de cerrar
+                f.flush()
+                os.fsync(f.fileno())
+            
+            # Verificar que el archivo se guardó correctamente
+            if os.path.exists(archivo):
+                tamanio = os.path.getsize(archivo)
+                print(f"[DEBUG] ✓ Puntajes guardados exitosamente en {archivo} (tamaño: {tamanio} bytes)")
+            else:
+                print(f"[ERROR] ✗ ADVERTENCIA: El archivo {archivo} no se creó después de guardar")
+        except Exception as e:
+            # Capturar cualquier error y mostrarlo
+            print(f"[ERROR] ✗ ERROR al guardar puntajes en {archivo}: {e}")
+            import traceback
+            traceback.print_exc()
 

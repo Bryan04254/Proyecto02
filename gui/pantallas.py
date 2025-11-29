@@ -13,6 +13,7 @@ from modelo.jugador import Jugador
 from logica.generador_mapa import GeneradorMapa
 from logica import Dificultad
 from sistema.puntajes import ScoreBoard, Puntaje, ModoJuego
+from sistema.sonidos import GestorSonidos, TipoSonido
 from modos import GameModeEscapa, GameModeCazador
 
 from .config import Colores, Config
@@ -253,6 +254,9 @@ class PantallaJuego(PantallaBase):
         self.barra_energia = None
         self.particulas = SistemaParticulas()
         
+        # Gestor de sonidos
+        self.gestor_sonidos = GestorSonidos()
+        
         # Dimensiones dinámicas del mapa
         self.mapa_offset_x = 20
         self.mapa_offset_y = 20
@@ -330,6 +334,7 @@ class PantallaJuego(PantallaBase):
             self.modo_juego = GameModeEscapa(
                 nombre_jugador=self.nombre_jugador,
                 dificultad=Dificultad.NORMAL,
+                tiempo_limite=Config.TIEMPO_PARTIDA_ESCAPA,
                 ancho_mapa=ancho_mapa,
                 alto_mapa=alto_mapa
             )
@@ -365,6 +370,9 @@ class PantallaJuego(PantallaBase):
         
         # Resetear renderizador
         self.renderizador.resetear_posicion_jugador(self.jugador)
+        
+        # Iniciar música de fondo
+        self.gestor_sonidos.reproducir_musica(loop=True)
     
     def inicializar_fuentes(self):
         """Inicializa las fuentes."""
@@ -389,9 +397,13 @@ class PantallaJuego(PantallaBase):
     def _continuar(self):
         """Continúa el juego."""
         self.pausado = False
+        # Reanudar música
+        self.gestor_sonidos.reanudar_musica()
     
     def _reiniciar(self):
         """Reinicia la partida."""
+        # Detener música actual
+        self.gestor_sonidos.detener_musica()
         self._inicializar_juego()
         self.tiempo_juego = 0
         self.puntos = 0
@@ -400,9 +412,12 @@ class PantallaJuego(PantallaBase):
         self.juego_terminado = False
         self.victoria = False
         # El modo_juego ya tiene su estado reseteado al inicializarse
+        # La música se reinicia en _inicializar_juego
     
     def _ir_menu(self):
         """Vuelve al menú principal."""
+        # Detener música al salir
+        self.gestor_sonidos.detener_musica()
         self.siguiente_pantalla = "menu"
     
     def manejar_evento(self, evento: pygame.event.Event):
@@ -413,6 +428,11 @@ class PantallaJuego(PantallaBase):
                     self._ir_menu()
                 else:
                     self.pausado = not self.pausado
+                    # Pausar/reanudar música
+                    if self.pausado:
+                        self.gestor_sonidos.pausar_musica()
+                    else:
+                        self.gestor_sonidos.reanudar_musica()
                 return
             
             if self.pausado or self.juego_terminado:
@@ -427,6 +447,8 @@ class PantallaJuego(PantallaBase):
                     x = self.mapa_offset_x + pos[1] * tamano_celda + tamano_celda // 2
                     y = self.mapa_offset_y + pos[0] * tamano_celda + tamano_celda // 2
                     self.particulas.emitir(x, y, Colores.ROJO_NEON, 5)
+                    # Sonido de colocar trampa
+                    self.gestor_sonidos.reproducir(TipoSonido.TRAMPA_COLOCAR)
                 return
             
             # Movimiento del jugador
@@ -447,6 +469,10 @@ class PantallaJuego(PantallaBase):
                 direccion = "derecha"
                 movio = self.modo_juego.mover_jugador("derecha", corriendo)
             
+            # Sonido de choque si no se pudo mover
+            if not movio and direccion is not None:
+                self.gestor_sonidos.reproducir(TipoSonido.CHOQUE_MURO)
+            
             if movio:
                 # Partículas al moverse
                 pos = self.jugador.obtener_posicion()
@@ -455,6 +481,20 @@ class PantallaJuego(PantallaBase):
                 y = self.mapa_offset_y + pos[0] * tamano_celda + tamano_celda // 2
                 color = Colores.NARANJA_NEON if corriendo else Colores.CYAN_NEON
                 self.particulas.emitir(x, y, color, 3)
+                
+                # Sonido de movimiento según el tipo de tile
+                from modelo.tile import Liana, Tunel
+                tile = self.mapa.obtener_casilla(pos[0], pos[1])
+                if isinstance(tile, Liana):
+                    self.gestor_sonidos.reproducir(TipoSonido.PASO_LIANA)
+                elif isinstance(tile, Tunel):
+                    self.gestor_sonidos.reproducir(TipoSonido.PASO_TUNEL)
+                else:
+                    # Sonido normal de paso (caminar o correr)
+                    if corriendo:
+                        self.gestor_sonidos.reproducir(TipoSonido.PASO_CORRIENDO)
+                    else:
+                        self.gestor_sonidos.reproducir(TipoSonido.PASO_NORMAL)
                 
                 # Verificar si se capturó un enemigo (modo cazador)
                 if self.modo == "cazador" and self.modo_juego:
@@ -470,6 +510,8 @@ class PantallaJuego(PantallaBase):
                         # Efecto de captura (partículas verdes)
                         for _ in range(20):
                             self.particulas.emitir(x, y, Colores.VERDE_NEON, 10)
+                        # Sonido de enemigo capturado
+                        self.gestor_sonidos.reproducir(TipoSonido.ENEMIGO_CAPTURADO)
         
         # Eventos de botones en pausa
         if self.pausado:
@@ -515,8 +557,18 @@ class PantallaJuego(PantallaBase):
             self.tiempo_juego = estado.get('tiempo_juego', 0)
             self.puntos = estado.get('puntos', 0)
             self.movimientos = estado.get('movimientos', 0)
+            juego_terminado_anterior = self.juego_terminado
             self.juego_terminado = estado.get('juego_terminado', False)
             self.victoria = estado.get('victoria', False) if 'victoria' in estado else False
+            
+            # Sonidos de victoria/derrota cuando el juego termina
+            if self.juego_terminado and not juego_terminado_anterior:
+                if self.victoria:
+                    self.gestor_sonidos.reproducir(TipoSonido.VICTORIA)
+                else:
+                    self.gestor_sonidos.reproducir(TipoSonido.DERROTA)
+                # Detener música de fondo
+                self.gestor_sonidos.detener_musica()
             
             # Feedback visual: enemigo capturado
             if self.modo == "cazador":
@@ -528,6 +580,8 @@ class PantallaJuego(PantallaBase):
                     x = self.mapa_offset_x + pos[1] * tamano_celda + tamano_celda // 2
                     y = self.mapa_offset_y + pos[0] * tamano_celda + tamano_celda // 2
                     self.particulas.emitir(x, y, Colores.VERDE_NEON, 8)
+                    # Sonido de enemigo capturado
+                    self.gestor_sonidos.reproducir(TipoSonido.ENEMIGO_CAPTURADO)
                 
                 # Feedback visual: enemigo escapó
                 enemigos_escapados_ahora = estado.get('enemigos_escapados', 0)
@@ -545,9 +599,14 @@ class PantallaJuego(PantallaBase):
                 return
         else:
             # Fallback al sistema antiguo si no hay modo_juego
+            juego_terminado_anterior = self.juego_terminado
             self.tiempo_juego += dt
             if self.tiempo_juego >= self.tiempo_limite:
                 self._terminar_juego(False)
+                # Sonido de derrota si acaba de terminar
+                if not juego_terminado_anterior:
+                    self.gestor_sonidos.reproducir(TipoSonido.DERROTA)
+                    self.gestor_sonidos.detener_musica()
                 return
             self.jugador.actualizar_energia(dt, tasa_recuperacion=2)
         
@@ -1355,6 +1414,13 @@ class PantallaPuntajes(PantallaBase):
         
         # Botones
         self.botones = []
+        
+        # Recargar puntajes inmediatamente al crear la pantalla
+        print(f"[DEBUG PantallaPuntajes] Inicializando pantalla, recargando puntajes desde: {self.scoreboard.directorio_puntajes}")
+        self.scoreboard.recargar_puntajes()
+        top5_escapa = self.scoreboard.obtener_top5("escapa")
+        top5_cazador = self.scoreboard.obtener_top5("cazador")
+        print(f"[DEBUG PantallaPuntajes] Puntajes cargados - Escapa: {len(top5_escapa)}, Cazador: {len(top5_cazador)}")
     
     def inicializar_fuentes(self):
         """Inicializa las fuentes."""
@@ -1380,6 +1446,9 @@ class PantallaPuntajes(PantallaBase):
     def _cambiar_modo(self, modo: str):
         """Cambia el modo de puntajes mostrado."""
         self.modo_actual = modo
+        # Recargar puntajes cuando se cambia de modo para asegurar datos actuales
+        self.scoreboard.recargar_puntajes()
+        print(f"[DEBUG PantallaPuntajes] Modo cambiado a: {modo}")
     
     def _volver(self):
         """Vuelve al menú principal."""

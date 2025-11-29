@@ -10,9 +10,11 @@ Un emocionante juego de laberinto con interfaz gráfica donde debes escapar ante
 
 - **Dos modos de juego**: Escapa y Cazador
 - **Sistema de energía**: Administra tu energía al correr
+- **Sistema de sonidos**: Efectos de sonido y música ambiente
 - **Laberintos procedurales**: Cada partida es diferente
 - **Tabla de puntajes**: Compite por el mejor puntaje
 - **Interfaz visual moderna**: Tema cyberpunk/retro con animaciones
+- **Sistema de tiempo límite**: Escapa antes de que se acabe el tiempo
 
 ## Estructura del Proyecto
 
@@ -36,7 +38,8 @@ Proyecto02/
 ├── sistema/               # Sistemas auxiliares
 │   ├── __init__.py
 │   ├── jugador_info.py    # Registro de jugadores
-│   └── puntajes.py        # Sistema de puntajes con fechas
+│   ├── puntajes.py        # Sistema de puntajes con fechas
+│   └── sonidos.py         # Sistema de gestión de sonidos
 ├── gui/                   # Interfaz Gráfica
 │   ├── __init__.py
 │   ├── config.py          # Configuración y colores
@@ -61,6 +64,7 @@ Proyecto02/
 
 - Python 3.7 o superior
 - Pygame 2.5+
+- NumPy 1.20+ (para el sistema de sonidos)
 
 ### Instalación de Pygame
 
@@ -78,7 +82,12 @@ pip install pygame
 
 **Opción 3 - Con pip directamente:**
 ```bash
-pip install pygame
+pip install pygame numpy
+```
+
+**Instalar todas las dependencias:**
+```bash
+pip install -r requirements.txt
 ```
 
 ### Ejecutar el Juego
@@ -116,11 +125,59 @@ python ejemplos/demo_nucleo.py
 | **Túnel** | Solo jugador | Si | No |
 | **Liana** | Solo enemigos | No | Si |
 
+## Modos de Juego
+
+### Modo Escapa
+El objetivo es llegar a la salida antes de que se acabe el tiempo o de que un enemigo te atrape.
+
+**Condiciones de Victoria:**
+- Llegar a la salida antes del tiempo límite
+
+**Condiciones de Derrota:**
+- Se agota el tiempo límite (120 segundos por defecto)
+- Un enemigo te alcanza
+
+**Características:**
+- Puedes colocar trampas para eliminar enemigos (máximo 3 activas)
+- Las trampas se regeneran cada 5 segundos
+- Debes llegar a la salida antes de que se acabe el tiempo
+
+### Modo Cazador
+El objetivo es capturar todos los enemigos antes de que se acabe el tiempo o de que alguno escape.
+
+**Condiciones de Victoria:**
+- Capturar todos los enemigos
+
+**Condiciones de Derrota:**
+- Se agota el tiempo límite (180 segundos por defecto)
+- Un enemigo escapa por la salida
+
 ## Sistema de Energía
 
-- **Caminar**: Consume 1 punto de energía
-- **Correr**: Consume 3 puntos de energía
-- **Recuperación**: La energía se regenera gradualmente
+- **Caminar**: Consume 0.5 puntos de energía
+- **Correr**: Consume 1.5 puntos de energía
+- **Recuperación**: La energía se regenera gradualmente (1 punto por segundo)
+
+## Sistema de Tiempo
+
+Ambos modos tienen un tiempo límite:
+
+- **Modo Escapa**: 120 segundos (2 minutos)
+- **Modo Cazador**: 180 segundos (3 minutos)
+
+Si se acaba el tiempo, el jugador pierde automáticamente.
+
+## Sistema de Sonidos
+
+El juego incluye un sistema completo de sonidos:
+
+- **Música ambiente**: Música de fondo que se reproduce durante el juego
+- **Sonidos de movimiento**: Pasos diferentes para caminar, correr y pisar terrenos especiales
+- **Efectos de choque**: Sonido cuando chocas con un muro
+- **Sonidos de acciones**: Colocar trampas, capturar enemigos, etc.
+- **Sonidos de resultado**: Victoria y derrota
+
+Los sonidos se generan programáticamente, por lo que no requieren archivos de audio externos.
 
 ## Sistema de Puntajes
 
@@ -239,6 +296,7 @@ class Config:
 ### Sistema (`sistema/`)
 - **puntajes.py**: Sistema de puntajes con persistencia JSON
 - **jugador_info.py**: Información del jugador
+- **sonidos.py**: Gestión de sonidos y música del juego
 
 ## Autores
 

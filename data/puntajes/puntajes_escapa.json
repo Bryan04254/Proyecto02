@@ -1,62 +1,26 @@
 [
   {
-    "nombre_jugador": "Luis",
-    "modo": "escapa",
-    "puntos": 2500,
-    "fecha": "2025-11-20T14:30:00"
-  },
-  {
-    "nombre_jugador": "Luis",
-    "modo": "escapa",
-    "puntos": 2500,
-    "fecha": "2025-11-24T20:56:02.726833"
-  },
-  {
-    "nombre_jugador": "pene",
-    "modo": "escapa",
-    "puntos": 2354,
-    "fecha": "2025-11-24T21:32:30.511493"
-  },
-  {
     "nombre_jugador": "Jugador",
     "modo": "escapa",
-    "puntos": 2186,
-    "fecha": "2025-11-24T21:03:30.604772"
+    "puntos": 599,
+    "fecha": "2025-11-29T03:03:37.703508",
+    "tiempo_juego": 85.39600000000108,
+    "movimientos": 214
   },
   {
-    "nombre_jugador": "Jugador",
+    "nombre_jugador": "Bryan",
     "modo": "escapa",
-    "puntos": 2155,
-    "fecha": "2025-11-24T21:18:31.274309"
+    "puntos": 448,
+    "fecha": "2025-11-29T02:55:37.304418",
+    "tiempo_juego": 39.65299999999918,
+    "movimientos": 112
   },
   {
-    "nombre_jugador": "María",
+    "nombre_jugador": "Allisson",
     "modo": "escapa",
-    "puntos": 2000,
-    "fecha": "2025-11-19T16:45:00"
-  },
-  {
-    "nombre_jugador": "María",
-    "modo": "escapa",
-    "puntos": 2000,
-    "fecha": "2025-11-24T20:56:02.707725"
-  },
-  {
-    "nombre_jugador": "aaa",
-    "modo": "escapa",
-    "puntos": 1871,
-    "fecha": "2025-11-24T20:47:23.576686"
-  },
-  {
-    "nombre_jugador": "cerote",
-    "modo": "escapa",
-    "puntos": 1859,
-    "fecha": "2025-11-24T21:34:41.481219"
-  },
-  {
-    "nombre_jugador": "Ana",
-    "modo": "escapa",
-    "puntos": 1800,
-    "fecha": "2025-11-18T10:20:00"
+    "puntos": 362,
+    "fecha": "2025-11-29T02:57:18.466070",
+    "tiempo_juego": 41.152999999999466,
+    "movimientos": 126
   }
 ]
