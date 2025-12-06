@@ -298,9 +298,9 @@ class Config:
 - **jugador_info.py**: Información del jugador
 - **sonidos.py**: Gestión de sonidos y música del juego
 
-## Autores
+## Autor
 
-Iniciado por Bryan Charpentier e Isaac Solis Alvarado
+Iniciado por Bryan Charpentier 
 
 ---
 
